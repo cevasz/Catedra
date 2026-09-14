@@ -1,0 +1,553 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+
+import '../../../core/db/daos/schedule_dao.dart';
+import '../../../core/providers.dart';
+import '../../../core/time/minutes_of_day.dart';
+import '../../../domain/attendance/attendance.dart';
+import '../../../domain/departure/departure.dart';
+import '../../../l10n/strings.g.dart';
+import '../../../theme/app_theme.dart';
+import '../../../theme/haptics.dart';
+import '../../../theme/layout.dart';
+import '../../../theme/transitions.dart';
+import '../../../theme/tokens.g.dart';
+import '../../mascot/mascot_view.dart';
+import '../../settings/presentation/settings_screen.dart';
+import '../../shell/presentation/app_shell.dart';
+import '../application/today_providers.dart';
+import 'widgets/countdown_ring.dart';
+import 'widgets/day_timeline.dart';
+import 'widgets/odometer_minutes.dart';
+
+class TodayScreen extends ConsumerStatefulWidget {
+  const TodayScreen({super.key});
+
+  @override
+  ConsumerState<TodayScreen> createState() => _TodayScreenState();
+}
+
+class _TodayScreenState extends ConsumerState<TodayScreen> {
+  /// La háptica pesada del «sal ya» va una vez por alerta, no una por rebuild.
+  bool _urgentHapticFired = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(todayStateProvider);
+    final today = ref.watch(todayProvider);
+
+    return Scaffold(
+      body: SafeArea(
+        child: state.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+            child: Text('$e', style: context.type(TypeTokens.bodyM)),
+          ),
+          data: (s) {
+            _syncUrgentHaptic(s.isUrgent);
+            final header = _Header(day: today);
+            final cards = _CardStack(state: s);
+
+            // En tablet, las cards a la izquierda y el día a la derecha: las
+            // dos cosas que se consultan caben sin scroll y sin competir.
+            if (context.sizeClass.isExpanded && !s.isEmpty) {
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: SpaceTokens.screenMargin),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: LayoutTokens.todayLeftPaneWidth,
+                      child: ListView(
+                        children: [
+                          SizedBox(height: SpaceTokens.l),
+                          header,
+                          SizedBox(height: SpaceTokens.xl),
+                          cards,
+                          SizedBox(height: SpaceTokens.xxl),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: LayoutTokens.paneGap),
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          SizedBox(height: SpaceTokens.l),
+                          _Card(
+                            accent: ColorTokens.surfaceBorder.of(Theme.of(context).brightness),
+                            child: DayTimeline(
+                              classes: s.classes,
+                              highlightId: s.next?.instance.id,
+                              gapsAfter: s.gapsAfter,
+                              urgent: s.isUrgent,
+                            ),
+                          ),
+                          SizedBox(height: SpaceTokens.xxl),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return ContentWidth(
+              child: ListView(
+                padding: EdgeInsets.symmetric(horizontal: SpaceTokens.screenMargin),
+                children: [
+                  SizedBox(height: SpaceTokens.l),
+                  header,
+                  SizedBox(height: SpaceTokens.xl),
+                  cards,
+                  if (!s.isEmpty) ...[
+                    SizedBox(height: SpaceTokens.xl),
+                    DayTimeline(
+                      classes: s.classes,
+                      highlightId: s.next?.instance.id,
+                      gapsAfter: s.gapsAfter,
+                      urgent: s.isUrgent,
+                    ),
+                  ],
+                  SizedBox(height: SpaceTokens.xxl),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _syncUrgentHaptic(bool urgent) {
+    if (!urgent) {
+      _urgentHapticFired = false;
+      return;
+    }
+    if (_urgentHapticFired) return;
+    _urgentHapticFired = true;
+    unawaited(Haptics.enteredUrgent(alreadyFired: false));
+  }
+}
+
+/// Las cards de arriba: cancelada, próxima o «nada más», según el estado.
+///
+/// Van dentro de un `StateSwitcher` con una clave que resume el estado: cuando
+/// cambia, el bloque saliente se retira hacia arriba y el entrante sube. Sin
+/// esto la card salta de «sal en 18 min» a «cancelada» en un fotograma.
+class _CardStack extends StatelessWidget {
+  const _CardStack({required this.state});
+  final TodayState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = state;
+    final signature = s.isEmpty
+        ? 'empty'
+        : 'c${s.cancelled?.instance.id}-n${s.next?.instance.id}-u${s.isUrgent}';
+
+    return StateSwitcher(
+      child: KeyedSubtree(
+        key: ValueKey(signature),
+        child: s.isEmpty
+            ? const _EmptyDay()
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (s.cancelled != null) ...[
+                    _CancelledCard(state: s),
+                    SizedBox(height: SpaceTokens.l),
+                  ],
+                  if (s.next != null) ...[
+                    if (s.cancelled != null) ...[
+                      const _Eyebrow(SCancelled.nextLabel),
+                      SizedBox(height: SpaceTokens.s),
+                    ],
+                    _NextClassCard(state: s),
+                  ] else
+                    const _DoneCard(),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.day});
+  final DateTime day;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = Theme.of(context).brightness;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(SToday.title, style: context.type(TypeTokens.titleL)),
+              SizedBox(height: SpaceTokens.xs),
+              Text(
+                // «Martes 1 de septiembre», con la primera en mayúscula.
+                capitalize(DateFormat("EEEE d 'de' MMMM", 'es_CO').format(day)),
+                style: context.type(
+                  TypeTokens.bodyM,
+                  color: ColorTokens.textSecondary.of(b),
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: () => openSettings(context),
+          tooltip: SSettings.title,
+          icon: const Icon(Icons.tune),
+          iconSize: IconTokens.sizeXl,
+          color: ColorTokens.textSecondary.of(b),
+        ),
+      ],
+    );
+  }
+}
+
+String capitalize(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+/// Etiqueta pequeña sobre una card, como «Lo siguiente».
+class _Eyebrow extends StatelessWidget {
+  const _Eyebrow(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        style: context.type(TypeTokens.label, color: context.themed(ColorTokens.textTertiary)),
+      );
+}
+
+/// El marco de card que comparten las tres cards de Hoy: borde izquierdo con
+/// el acento que toque, hairline alrededor y la sombra del contrato.
+class _Card extends StatelessWidget {
+  const _Card({required this.accent, required this.child});
+
+  final Color accent;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = Theme.of(context).brightness;
+    final hair = BorderSide(color: ColorTokens.surfaceBorder.of(b), width: BorderTokens.hairline);
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(SpaceTokens.cardPadding),
+      decoration: BoxDecoration(
+        color: ColorTokens.surfaceCard.of(b),
+        borderRadius: BorderRadius.circular(RadiusTokens.card),
+        border: Border(
+          left: BorderSide(color: accent, width: BorderTokens.subjectAccent),
+          top: hair,
+          right: hair,
+          bottom: hair,
+        ),
+        boxShadow: ElevationTokens.card(b),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// La card de próxima clase con su anillo. Los estados del prototipo (normal,
+/// sal ya) se distinguen por color y peso, no por layouts distintos.
+class _NextClassCard extends ConsumerWidget {
+  const _NextClassCard({required this.state});
+  final TodayState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final b = Theme.of(context).brightness;
+    final plan = state.plan!;
+    final next = state.next!;
+    final urgent = plan.isUrgent;
+
+    final accent = urgent
+        ? ColorTokens.accentUrgent.of(b)
+        : SubjectPalette.at(next.subject.colorIndex);
+
+    return _Card(
+      accent: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  CountdownRing(
+                    progress: _progress(plan),
+                    urgent: urgent,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OdometerMinutes(
+                          minutes: plan.minutesUntilLeave,
+                          color: urgent
+                              ? ColorTokens.accentUrgent.of(b)
+                              : ColorTokens.textPrimary.of(b),
+                        ),
+                        Text(
+                          SToday.countdownUnit,
+                          style: context.type(
+                            TypeTokens.captionS,
+                            color: ColorTokens.textSecondary.of(b),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Erizógenes entra pequeño y rodando en la esquina, solo en urgente.
+                  if (urgent)
+                    const Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: MascotView(
+                        pose: MascotPose.rodando,
+                        size: MascotTokens.sizeUrgentCorner,
+                        host: MascotHost.urgentCorner,
+                      ),
+                    ),
+                ],
+              ),
+              SizedBox(width: SpaceTokens.l),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      urgent
+                          ? SToday.urgentHeadline
+                          : SToday.leaveIn(n: plan.minutesUntilLeave),
+                      style: context.type(
+                        TypeTokens.titleM,
+                        color: urgent
+                            ? ColorTokens.accentUrgent.of(b)
+                            : ColorTokens.textPrimary.of(b),
+                      ),
+                    ),
+                    SizedBox(height: SpaceTokens.xs),
+                    Text(next.subject.nombre, style: context.type(TypeTokens.titleS)),
+                    SizedBox(height: SpaceTokens.s),
+                    Text(
+                      _roomLine(next.room?.codigo, next.session.horaInicio),
+                      style: context.type(
+                        TypeTokens.bodyM,
+                        color: ColorTokens.textSecondary.of(b),
+                      ),
+                    ),
+                    Text(
+                      _etaLine(plan),
+                      style: context.type(
+                        TypeTokens.bodyM,
+                        color: ColorTokens.textSecondary.of(b),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: SpaceTokens.m),
+          Row(
+            children: [
+              TextButton(
+                onPressed: () => _mark(ref, next, SessionStatus.canceladaProfe),
+                child: const Text(SToday.cancelAction),
+              ),
+              const Spacer(),
+              FilledButton(
+                onPressed: () => _mark(ref, next, SessionStatus.asistio),
+                style: urgent
+                    ? FilledButton.styleFrom(
+                        backgroundColor: ColorTokens.accentUrgent.of(b),
+                        foregroundColor: ColorTokens.textOnUrgent.of(b),
+                      )
+                    : null,
+                child: const Text(SToday.onMyWay),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// «Ya voy» marca asistencia y «Cancelar» marca cancelada por el profe. Las
+  /// dos son reversibles desde la timeline y desde el historial de la materia.
+  Future<void> _mark(WidgetRef ref, DayClass item, SessionStatus status) async {
+    unawaited(Haptics.fire(
+      status == SessionStatus.canceladaProfe ? 'marcarCancelacion' : 'marcarAsistencia',
+    ));
+    await ref.read(scheduleDaoProvider).setStatus(item.instance.id, status);
+  }
+
+  static String _roomLine(String? code, int startMinutes) {
+    final hora = MinutesOfDay(startMinutes).hhmm;
+    return code == null ? hora : SToday.roomLine(code: code, hora: hora);
+  }
+
+  /// El microcopy del prototipo es «a pie». En bus o carro se dice igual con
+  /// el tiempo del modo: no hay texto del prototipo para ellos y el número es
+  /// lo que importa.
+  static String _etaLine(DeparturePlan plan) => plan.isUrgent
+      ? SToday.walkEtaTight(n: plan.travelMinutes)
+      : SToday.walkEta(n: plan.travelMinutes, m: plan.arrivalMargin);
+
+  /// El anillo se vacía a medida que se consume el margen. La ventana sale del
+  /// contrato y el cálculo del dominio; aquí solo se conectan.
+  static double _progress(DeparturePlan plan) => DeparturePlanner.ringProgress(
+        plan,
+        windowMinutes: RingTokens.countdownProgressWindowMinutes.round(),
+      );
+}
+
+/// Pantalla B3: la clase se canceló hace un momento. Se queda a la vista con
+/// su «Deshacer» hasta que pase la hora a la que habría terminado.
+class _CancelledCard extends ConsumerWidget {
+  const _CancelledCard({required this.state});
+  final TodayState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final b = Theme.of(context).brightness;
+    final item = state.cancelled!;
+    final ago = state.minutesSinceCancelled;
+
+    return _Card(
+      accent: ColorTokens.surfaceBorder.of(b),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            SCancelled.headline,
+            style: context.type(TypeTokens.titleM, color: ColorTokens.textSecondary.of(b)),
+          ),
+          SizedBox(height: SpaceTokens.xs),
+          Text(
+            item.subject.nombre,
+            style: context.type(TypeTokens.titleS, color: ColorTokens.textSecondary.of(b)),
+          ),
+          SizedBox(height: SpaceTokens.s),
+          Text(
+            SCancelled.note,
+            style: context.type(TypeTokens.bodyM, color: ColorTokens.textTertiary.of(b)),
+          ),
+          SizedBox(height: SpaceTokens.s),
+          Row(
+            children: [
+              if (ago != null)
+                Text(
+                  SCancelled.markedAgo(n: ago),
+                  style: context.type(TypeTokens.captionS, color: ColorTokens.textTertiary.of(b)),
+                ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => ref.read(scheduleDaoProvider).clearStatus(item.instance.id),
+                child: const Text(SCancelled.undo),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ya no queda nada por delante hoy. Dice qué sigue, si hay algo.
+class _DoneCard extends ConsumerWidget {
+  const _DoneCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final b = Theme.of(context).brightness;
+    final upcoming = ref.watch(nextAfterTodayProvider).valueOrNull;
+
+    return _Card(
+      accent: ColorTokens.surfaceBorder.of(b),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(SToday.nothingElse, style: context.type(TypeTokens.titleM)),
+          if (upcoming != null) ...[
+            SizedBox(height: SpaceTokens.s),
+            _NextUpLine(item: upcoming),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// «Lo próximo: jue 8:00 · Física II». El texto es el del widget 4x4 del
+/// prototipo, que es el único que nombra una clase de otro día.
+class _NextUpLine extends StatelessWidget {
+  const _NextUpLine({required this.item});
+  final DayClass item;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        SWidgets.nextUpDay(
+          dia: SWeek.days[item.instance.fecha.weekday - 1],
+          hora: MinutesOfDay(item.session.horaInicio).hhmm,
+          clase: item.subject.nombre,
+        ),
+        style: context.type(TypeTokens.bodyM, color: context.themed(ColorTokens.textSecondary)),
+      );
+}
+
+/// Estado vacío. Es una de las pantallas donde Erizógenes sí puede aparecer.
+class _EmptyDay extends ConsumerWidget {
+  const _EmptyDay();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final b = Theme.of(context).brightness;
+    final upcoming = ref.watch(nextAfterTodayProvider).valueOrNull;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: SpaceTokens.xxxl),
+      child: Column(
+        children: [
+          const MascotView(
+            pose: MascotPose.dormido,
+            size: MascotTokens.sizeEmptyDay,
+            host: MascotHost.emptyDay,
+          ),
+          SizedBox(height: SpaceTokens.xl),
+          Text(SEmptyDay.headline, style: context.type(TypeTokens.titleM)),
+          SizedBox(height: SpaceTokens.s),
+          Text(
+            SEmptyDay.mascotLine,
+            textAlign: TextAlign.center,
+            style: context.type(
+              TypeTokens.bodyL,
+              color: ColorTokens.textSecondary.of(b),
+            ),
+          ),
+          if (upcoming != null) ...[
+            SizedBox(height: SpaceTokens.l),
+            _NextUpLine(item: upcoming),
+          ],
+          SizedBox(height: SpaceTokens.xl),
+          OutlinedButton(
+            onPressed: () => ref.read(shellTabProvider.notifier).state = ShellTab.week,
+            child: const Text(SEmptyDay.cta),
+          ),
+        ],
+      ),
+    );
+  }
+}
