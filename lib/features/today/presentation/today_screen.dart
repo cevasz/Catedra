@@ -13,6 +13,8 @@ import '../../../l10n/strings.g.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/haptics.dart';
 import '../../../theme/layout.dart';
+import '../../../theme/micro_animations.dart';
+import '../../../theme/motion.dart';
 import '../../../theme/transitions.dart';
 import '../../../theme/tokens.g.dart';
 import '../../mascot/mascot_view.dart';
@@ -42,7 +44,74 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     return Scaffold(
       body: SafeArea(
         child: state.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => Padding(
+            padding: EdgeInsets.symmetric(horizontal: SpaceTokens.screenMargin),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: SpaceTokens.l),
+                // Skeleton del header
+                ShimmerLoading(
+                  width: 180,
+                  height: 20,
+                  borderRadius: RadiusTokens.control,
+                ),
+                SizedBox(height: SpaceTokens.xs),
+                ShimmerLoading(
+                  width: 140,
+                  height: 14,
+                  borderRadius: RadiusTokens.control,
+                ),
+                SizedBox(height: SpaceTokens.xl),
+                // Skeleton de la card: imita el anillo (104×104) + texto a la derecha.
+                Container(
+                  padding: EdgeInsets.all(SpaceTokens.cardPadding),
+                  decoration: BoxDecoration(
+                    color: ColorTokens.surfaceCard
+                        .of(Theme.of(context).brightness),
+                    borderRadius: BorderRadius.circular(RadiusTokens.card),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Bloque que imita el anillo de cuenta regresiva.
+                      ShimmerLoading(
+                        width: RingTokens.countdownDiameter,
+                        height: RingTokens.countdownDiameter,
+                        borderRadius: RingTokens.countdownDiameter / 2,
+                      ),
+                      SizedBox(width: SpaceTokens.l),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(height: SpaceTokens.s),
+                            ShimmerLoading(
+                              width: double.infinity,
+                              height: 20,
+                              borderRadius: RadiusTokens.control,
+                            ),
+                            SizedBox(height: SpaceTokens.s),
+                            ShimmerLoading(
+                              width: 120,
+                              height: 16,
+                              borderRadius: RadiusTokens.control,
+                            ),
+                            SizedBox(height: SpaceTokens.s),
+                            ShimmerLoading(
+                              width: 90,
+                              height: 13,
+                              borderRadius: RadiusTokens.control,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
           error: (e, _) => Center(
             child: Text('$e', style: context.type(TypeTokens.bodyM)),
           ),
@@ -363,20 +432,26 @@ class _NextClassCard extends ConsumerWidget {
           SizedBox(height: SpaceTokens.m),
           Row(
             children: [
-              TextButton(
-                onPressed: () => _mark(ref, next, SessionStatus.canceladaProfe),
-                child: const Text(SToday.cancelAction),
+              // PressScaleButton: micro-feedback visual al presionar «Cancelar».
+              PressScaleButton(
+                child: TextButton(
+                  onPressed: () => _mark(ref, next, SessionStatus.canceladaProfe),
+                  child: const Text(SToday.cancelAction),
+                ),
               ),
               const Spacer(),
-              FilledButton(
-                onPressed: () => _mark(ref, next, SessionStatus.asistio),
-                style: urgent
-                    ? FilledButton.styleFrom(
-                        backgroundColor: ColorTokens.accentUrgent.of(b),
-                        foregroundColor: ColorTokens.textOnUrgent.of(b),
-                      )
-                    : null,
-                child: const Text(SToday.onMyWay),
+              // PressScaleButton: micro-feedback visual al presionar «Ya voy».
+              PressScaleButton(
+                child: FilledButton(
+                  onPressed: () => _mark(ref, next, SessionStatus.asistio),
+                  style: urgent
+                      ? FilledButton.styleFrom(
+                          backgroundColor: ColorTokens.accentUrgent.of(b),
+                          foregroundColor: ColorTokens.textOnUrgent.of(b),
+                        )
+                      : null,
+                  child: const Text(SToday.onMyWay),
+                ),
               ),
             ],
           ),
@@ -474,13 +549,28 @@ class _DoneCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final b = Theme.of(context).brightness;
     final upcoming = ref.watch(nextAfterTodayProvider).valueOrNull;
+    final guard = MotionGuard.of(context);
 
     return _Card(
       accent: ColorTokens.surfaceBorder.of(b),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(SToday.nothingElse, style: context.type(TypeTokens.titleM)),
+          // Spring-enter: el título entra con scale 0.9→1.0 y easeOutBackBounce,
+          // produciendo un efecto elástico suave. Bajo reduced-motion solo fade.
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: guard.duration(MotionDurations.ring),
+            curve: guard.curve(MotionCurves.easeOutBackBounce),
+            builder: (context, t, child) => Opacity(
+              opacity: t.clamp(0.0, 1.0),
+              child: Transform.scale(
+                scale: guard.reduced ? 1.0 : (0.9 + 0.1 * t),
+                child: child,
+              ),
+            ),
+            child: Text(SToday.nothingElse, style: context.type(TypeTokens.titleM)),
+          ),
           if (upcoming != null) ...[
             SizedBox(height: SpaceTokens.s),
             _NextUpLine(item: upcoming),
@@ -527,7 +617,19 @@ class _EmptyDay extends ConsumerWidget {
             host: MascotHost.emptyDay,
           ),
           SizedBox(height: SpaceTokens.xl),
-          Text(SEmptyDay.headline, style: context.type(TypeTokens.titleM)),
+          // TweenAnimationBuilder: el headline entra con scale 0.95→1.0
+          // complementando el fade que ya da CascadeIn al padre. Bajo
+          // reduced-motion solo hay fade (guard resuelve la escala a 1.0).
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: MotionGuard.of(context).duration(MotionDurations.base),
+            curve: MotionGuard.of(context).curve(MotionCurves.easeOutCubic),
+            builder: (context, t, child) => Transform.scale(
+              scale: MotionGuard.of(context).reduced ? 1.0 : (0.95 + 0.05 * t),
+              child: child,
+            ),
+            child: Text(SEmptyDay.headline, style: context.type(TypeTokens.titleM)),
+          ),
           SizedBox(height: SpaceTokens.s),
           Text(
             SEmptyDay.mascotLine,

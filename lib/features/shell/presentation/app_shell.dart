@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../l10n/strings.g.dart';
 import '../../../theme/layout.dart';
+import '../../../theme/motion.dart';
 import '../../../theme/tokens.g.dart';
 import '../../schedule/presentation/week_screen.dart';
 import '../../subjects/presentation/subjects_screen.dart';
@@ -82,9 +83,33 @@ class AppShell extends ConsumerWidget {
         onDestinationSelected: select,
         destinations: [
           for (var i = 0; i < _screens.length; i++)
-            NavigationDestination(icon: Icon(_icons[i]), label: _labels[i]),
+            NavigationDestination(
+              icon: _NavBounceIcon(
+                icon: _icons[i],
+                isSelected: i == index,
+              ),
+              label: _labels[i],
+            ),
         ],
       ),
+    );
+  }
+}
+
+/// Ícono de navegación con micro-rebote elástico al ser seleccionado.
+class _NavBounceIcon extends StatelessWidget {
+  const _NavBounceIcon({required this.icon, required this.isSelected});
+
+  final IconData icon;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: isSelected ? 1.08 : 1.0,
+      duration: MotionDurations.fast,
+      curve: MotionCurves.easeOutBackBounce,
+      child: Icon(icon),
     );
   }
 }

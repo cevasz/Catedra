@@ -18,6 +18,7 @@ class CascadeIn extends StatelessWidget {
     required this.child,
     this.step = MotionStagger.timeline,
     this.rise = MotionOffsets.timelineRise,
+    this.scale = 1.0,
     super.key,
   });
 
@@ -31,6 +32,13 @@ class CascadeIn extends StatelessWidget {
   /// Subida en píxeles. Bajo reduced-motion la resuelve el guard a cero.
   final double rise;
 
+  /// Escala inicial de la entrada. Cuando es menor que 1.0, el widget crece de
+  /// [scale] a 1.0 simultáneamente con el fade+rise, produciendo un efecto de
+  /// «pop» que realza cards importantes. En 1.0 el comportamiento es idéntico
+  /// al anterior. Bajo reduced-motion se ignora (el guard ya colapsa el rise a
+  /// cero, y la escala sería imperceptible de todos modos).
+  final double scale;
+
   @override
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
@@ -38,13 +46,22 @@ class CascadeIn extends StatelessWidget {
       duration:
           guard.duration(MotionDurations.base) + guard.stagger(staggerDelay(step, index)),
       curve: guard.curve(MotionCurves.easeOutExpo),
-      builder: (context, t, child) => Opacity(
-        opacity: t,
-        child: Transform.translate(
-          offset: Offset(0, guard.offset(rise) * (1 - t)),
-          child: child,
-        ),
-      ),
+      builder: (context, t, child) {
+        // Escala efectiva: interpolamos de [scale] a 1.0 siguiendo la misma t.
+        // Bajo reduced-motion el guard colapsa el rise, pero la escala también
+        // debe apagarse para no introducir movimiento no deseado.
+        final effectiveScale = guard.reduced ? 1.0 : (scale + (1.0 - scale) * t);
+        return Opacity(
+          opacity: t,
+          child: Transform.scale(
+            scale: effectiveScale,
+            child: Transform.translate(
+              offset: Offset(0, guard.offset(rise) * (1 - t)),
+              child: child,
+            ),
+          ),
+        );
+      },
       child: child,
     );
   }

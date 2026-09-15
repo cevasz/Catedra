@@ -161,6 +161,9 @@ class _StatusChoice {
 }
 
 /// La insignia del semáforo: «Mitad del cupo usada», «Una más y pierdes».
+///
+/// Usa [AnimatedContainer] para que el borde de color transite suavemente
+/// cuando el estado del semáforo cambia, en lugar de saltar en un fotograma.
 class _Badge extends StatelessWidget {
   const _Badge({required this.text, required this.color});
 
@@ -168,7 +171,9 @@ class _Badge extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => AnimatedContainer(
+        duration: MotionDurations.fast,
+        curve: MotionCurves.easeOutCubic,
         padding: EdgeInsets.symmetric(
           vertical: ComponentTokens.chipPaddingV,
           horizontal: ComponentTokens.chipPaddingH,
@@ -181,18 +186,42 @@ class _Badge extends StatelessWidget {
       );
 }
 
-class _HistoryRow extends StatelessWidget {
+class _HistoryRow extends StatefulWidget {
   const _HistoryRow({required this.instance, required this.onTap});
 
   final SessionInstance instance;
   final VoidCallback onTap;
 
   @override
+  State<_HistoryRow> createState() => _HistoryRowState();
+}
+
+class _HistoryRowState extends State<_HistoryRow> {
+  /// Controla el destello de fondo: true durante los primeros 400 ms tras el
+  /// toque, luego vuelve a false. Lo gestiona [_flashTap].
+  bool _flashing = false;
+
+  Future<void> _flashTap() async {
+    if (!mounted) return;
+    // El destello solo corre si la animación está permitida.
+    final guard = MotionGuard.of(context);
+    if (!guard.reduced) {
+      setState(() => _flashing = true);
+      // [MotionDurations.strike] = 400 ms: el mismo token que el trazo de
+      // cancelación, apropiado para un feedback visual de un toque.
+      await Future<void>.delayed(MotionDurations.strike);
+    }
+    if (!mounted) return;
+    setState(() => _flashing = false);
+    widget.onTap();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final b = Theme.of(context).brightness;
-    final cancelled = instance.estado == SessionStatus.canceladaProfe;
+    final cancelled = widget.instance.estado == SessionStatus.canceladaProfe;
 
-    final (label, color) = switch (instance.estado) {
+    final (label, color) = switch (widget.instance.estado) {
       SessionStatus.asistio => (SAttendance.stateAttended, ColorTokens.accentOk.of(b)),
       SessionStatus.falto => (SAttendance.stateAbsent, ColorTokens.accentUrgent.of(b)),
       SessionStatus.canceladaProfe =>
@@ -204,34 +233,47 @@ class _HistoryRow extends StatelessWidget {
       SessionStatus.pendiente => ('', ColorTokens.textTertiary.of(b)),
     };
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(RadiusTokens.control),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: SpaceTokens.m),
-        child: Row(
-          children: [
-            CheckMark(
-              checked: instance.estado == SessionStatus.asistio,
-              color: ColorTokens.accentOk.of(b),
-            ),
-            SizedBox(width: SpaceTokens.m),
-            Expanded(
-              // Una cancelada se tacha, no se esconde: sigue siendo una clase
-              // que estaba en tu horario. El trazo se dibuja al marcarla.
-              child: StrikeThrough(
-                struck: cancelled,
-                guard: MotionGuard.of(context),
-                color: ColorTokens.textPrimary.of(b),
-                struckColor: ColorTokens.textTertiary.of(b),
-                child: Text(
-                  DateFormat('EEE d MMM', 'es_CO').format(instance.fecha),
-                  style: context.type(TypeTokens.bodyS),
+    // AnimatedContainer con destello: fondo transparente → accentOk al 15 %
+    // → transparente, en [MotionDurations.strike] (400 ms). Sin animación bajo
+    // reduced-motion: el guard ya desactiva el flash antes de este punto.
+    return AnimatedContainer(
+      duration: MotionDurations.strike,
+      curve: MotionCurves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: _flashing
+            ? ColorTokens.accentOk.of(b).withAlpha(0x15)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(RadiusTokens.control),
+      ),
+      child: InkWell(
+        onTap: _flashTap,
+        borderRadius: BorderRadius.circular(RadiusTokens.control),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: SpaceTokens.m),
+          child: Row(
+            children: [
+              CheckMark(
+                checked: widget.instance.estado == SessionStatus.asistio,
+                color: ColorTokens.accentOk.of(b),
+              ),
+              SizedBox(width: SpaceTokens.m),
+              Expanded(
+                // Una cancelada se tacha, no se esconde: sigue siendo una clase
+                // que estaba en tu horario. El trazo se dibuja al marcarla.
+                child: StrikeThrough(
+                  struck: cancelled,
+                  guard: MotionGuard.of(context),
+                  color: ColorTokens.textPrimary.of(b),
+                  struckColor: ColorTokens.textTertiary.of(b),
+                  child: Text(
+                    DateFormat('EEE d MMM', 'es_CO').format(widget.instance.fecha),
+                    style: context.type(TypeTokens.bodyS),
+                  ),
                 ),
               ),
-            ),
-            Text(label, style: context.type(TypeTokens.captionS, color: color)),
-          ],
+              Text(label, style: context.type(TypeTokens.captionS, color: color)),
+            ],
+          ),
         ),
       ),
     );

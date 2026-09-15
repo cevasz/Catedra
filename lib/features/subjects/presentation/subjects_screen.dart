@@ -6,6 +6,7 @@ import '../../../l10n/strings.g.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/cascade.dart';
 import '../../../theme/layout.dart';
+import '../../../theme/micro_animations.dart';
 import '../../../theme/motion.dart';
 import '../../../theme/tokens.g.dart';
 import '../../../theme/transitions.dart';
@@ -140,17 +141,41 @@ class _List extends StatelessWidget {
       separatorBuilder: (_, __) => SizedBox(height: SpaceTokens.cardGap),
       itemBuilder: (context, i) {
         if (i == 0) {
+          // NumberRollIn: el número de materias anima como odómetro cuando
+          // cambia (añadir / borrar materia). El texto que lo acompaña es
+          // estático: solo el entero salta.
           return Padding(
             padding: EdgeInsets.only(bottom: SpaceTokens.xs),
-            child: Text(
-              subjects.length == 1
-                  ? SSubjects.countOne
-                  : SSubjects.count(n: subjects.length),
-              style: context.type(
-                TypeTokens.bodyM,
-                color: ColorTokens.textTertiary.of(b),
-              ),
-            ),
+            child: subjects.length == 1
+                ? Text(
+                    SSubjects.countOne,
+                    style: context.type(
+                      TypeTokens.bodyM,
+                      color: ColorTokens.textTertiary.of(b),
+                    ),
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      NumberRollIn(
+                        value: subjects.length,
+                        style: context.type(
+                          TypeTokens.bodyM,
+                          color: ColorTokens.textTertiary.of(b),
+                        ),
+                      ),
+                      Text(
+                        // El string completo es «N materias»; quitamos el número
+                        // del inicio para que NumberRollIn lo anime solo.
+                        SSubjects.count(n: subjects.length)
+                            .replaceFirst('${subjects.length}', ''),
+                        style: context.type(
+                          TypeTokens.bodyM,
+                          color: ColorTokens.textTertiary.of(b),
+                        ),
+                      ),
+                    ],
+                  ),
           );
         }
         final card = subjects[i - 1];
@@ -178,91 +203,96 @@ class _SubjectTile extends ConsumerWidget {
     final accent = SubjectPalette.at(card.subject.colorIndex);
     final semaphore = SemaphoreTokens.color[card.tally.state]!.of(b);
 
-    return Material(
-      color: selected ? ColorTokens.surfaceRaised.of(b) : ColorTokens.surfaceCard.of(b),
-      borderRadius: BorderRadius.circular(RadiusTokens.card),
-      child: InkWell(
+    // PressScaleButton con escala 0.97: las filas de lista usan menos compresión
+    // que los botones de acción (0.96) para no parecer que «aplastas» la fila.
+    return PressScaleButton(
+      pressedScale: 0.97,
+      child: Material(
+        color: selected ? ColorTokens.surfaceRaised.of(b) : ColorTokens.surfaceCard.of(b),
         borderRadius: BorderRadius.circular(RadiusTokens.card),
-        onTap: () {
-          if (context.sizeClass.isExpanded) {
-            ref.read(selectedSubjectProvider.notifier).state = card.subject.id;
-            return;
-          }
-          Navigator.of(context).push<void>(
-            MaterialPageRoute(
-              builder: (_) => SubjectDetailScreen(subjectId: card.subject.id),
-            ),
-          );
-        },
-        child: Container(
-          padding: EdgeInsets.all(SpaceTokens.cardPadding),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(RadiusTokens.card),
-            border: Border(
-              left: BorderSide(
-                color: accent,
-                width: ComponentTokens.subjectCardAccentBorderLeft,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(RadiusTokens.card),
+          onTap: () {
+            if (context.sizeClass.isExpanded) {
+              ref.read(selectedSubjectProvider.notifier).state = card.subject.id;
+              return;
+            }
+            Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (_) => SubjectDetailScreen(subjectId: card.subject.id),
               ),
-              top: BorderSide(
-                color: ColorTokens.surfaceBorder.of(b),
-                width: BorderTokens.hairline,
-              ),
-              right: BorderSide(
-                color: ColorTokens.surfaceBorder.of(b),
-                width: BorderTokens.hairline,
-              ),
-              bottom: BorderSide(
-                color: ColorTokens.surfaceBorder.of(b),
-                width: BorderTokens.hairline,
-              ),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(card.subject.nombre, style: context.type(TypeTokens.titleS)),
-              SizedBox(height: SpaceTokens.xs),
-              Text(
-                [
-                  card.subject.profesor,
-                  card.weeklyClasses == 0
-                      ? SSubjects.noSchedule
-                      : card.weeklyClasses == 1
-                          ? SSubjects.classesPerWeekOne
-                          : SSubjects.classesPerWeek(n: card.weeklyClasses),
-                ].whereType<String>().join(' · '),
-                style: context.type(
-                  TypeTokens.captionS,
-                  color: ColorTokens.textTertiary.of(b),
+            );
+          },
+          child: Container(
+            padding: EdgeInsets.all(SpaceTokens.cardPadding),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(RadiusTokens.card),
+              border: Border(
+                left: BorderSide(
+                  color: accent,
+                  width: ComponentTokens.subjectCardAccentBorderLeft,
+                ),
+                top: BorderSide(
+                  color: ColorTokens.surfaceBorder.of(b),
+                  width: BorderTokens.hairline,
+                ),
+                right: BorderSide(
+                  color: ColorTokens.surfaceBorder.of(b),
+                  width: BorderTokens.hairline,
+                ),
+                bottom: BorderSide(
+                  color: ColorTokens.surfaceBorder.of(b),
+                  width: BorderTokens.hairline,
                 ),
               ),
-              SizedBox(height: SpaceTokens.m),
-              Row(
-                children: [
-                  _Dot(color: semaphore),
-                  SizedBox(width: SpaceTokens.xs + SpaceTokens.xs / 2),
-                  Text(
-                    SSubjects.absencesShort(
-                      used: card.tally.used,
-                      limit: card.tally.limit,
-                    ),
-                    style: context.type(TypeTokens.captionS, color: semaphore),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(card.subject.nombre, style: context.type(TypeTokens.titleS)),
+                SizedBox(height: SpaceTokens.xs),
+                Text(
+                  [
+                    card.subject.profesor,
+                    card.weeklyClasses == 0
+                        ? SSubjects.noSchedule
+                        : card.weeklyClasses == 1
+                            ? SSubjects.classesPerWeekOne
+                            : SSubjects.classesPerWeek(n: card.weeklyClasses),
+                  ].whereType<String>().join(' · '),
+                  style: context.type(
+                    TypeTokens.captionS,
+                    color: ColorTokens.textTertiary.of(b),
                   ),
-                  const Spacer(),
-                  Text(
-                    card.hasGrades
-                        ? SSubjects.gradeShort(n: Numbers.grade(card.grades.accumulated))
-                        : SSubjects.gradeNone,
-                    style: context.type(
-                      TypeTokens.captionS,
-                      color: card.hasGrades
-                          ? ColorTokens.textSecondary.of(b)
-                          : ColorTokens.textTertiary.of(b),
+                ),
+                SizedBox(height: SpaceTokens.m),
+                Row(
+                  children: [
+                    _Dot(color: semaphore),
+                    SizedBox(width: SpaceTokens.xs + SpaceTokens.xs / 2),
+                    Text(
+                      SSubjects.absencesShort(
+                        used: card.tally.used,
+                        limit: card.tally.limit,
+                      ),
+                      style: context.type(TypeTokens.captionS, color: semaphore),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const Spacer(),
+                    Text(
+                      card.hasGrades
+                          ? SSubjects.gradeShort(n: Numbers.grade(card.grades.accumulated))
+                          : SSubjects.gradeNone,
+                      style: context.type(
+                        TypeTokens.captionS,
+                        color: card.hasGrades
+                            ? ColorTokens.textSecondary.of(b)
+                            : ColorTokens.textTertiary.of(b),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -272,12 +302,18 @@ class _SubjectTile extends ConsumerWidget {
 
 /// El punto del semáforo. Es el mismo lenguaje que el anillo segmentado de la
 /// pantalla de materia, reducido a lo que cabe en una fila.
+///
+/// Usa [AnimatedContainer] para que el cambio de color (ok → atención → riesgo)
+/// transite suavemente con [MotionDurations.fast] en lugar de saltar en un
+/// fotograma.
 class _Dot extends StatelessWidget {
   const _Dot({required this.color});
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => AnimatedContainer(
+        duration: MotionDurations.fast,
+        curve: MotionCurves.easeOutCubic,
         width: LayoutTokens.timelineRowDotSize,
         height: LayoutTokens.timelineRowDotSize,
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),

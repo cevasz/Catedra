@@ -7,6 +7,7 @@ import '../../../../domain/schedule/day_gaps.dart';
 import '../../../../l10n/strings.g.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../theme/cascade.dart';
+import '../../../../theme/micro_animations.dart';
 import '../../../../theme/motion.dart';
 import '../../../../theme/strike_through.dart';
 import '../../../../theme/tokens.g.dart';
@@ -38,15 +39,30 @@ class DayTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final guard = MotionGuard.of(context);
+    final b = Theme.of(context).brightness;
 
     // Cada fila y cada hueco tienen su propio paso de la cascada.
     final rows = <Widget>[];
     for (final c in classes) {
-      rows.add(_TimelineRow(
+      final isHighlighted = c.instance.id == highlightId;
+      final row = _TimelineRow(
         item: c,
-        highlighted: c.instance.id == highlightId,
-        urgent: urgent && c.instance.id == highlightId,
-      ));
+        highlighted: isHighlighted,
+        urgent: urgent && isHighlighted,
+      );
+      // PulseHighlight: cuando la clase pasa a ser la «siguiente» activa,
+      // la fila hace un destello suave de fondo (accentPrimary al 15 %).
+      rows.add(
+        isHighlighted
+            ? PulseHighlight(
+                highlighted: isHighlighted,
+                color: urgent
+                    ? ColorTokens.accentUrgent.of(b)
+                    : ColorTokens.accentPrimary.of(b),
+                child: row,
+              )
+            : row,
+      );
       final gap = gapsAfter[c.instance.id];
       if (gap != null) rows.add(_GapRow(gap: gap));
     }
@@ -57,9 +73,13 @@ class DayTimeline extends StatelessWidget {
         Text(SToday.dayLabel, style: context.type(TypeTokens.label, color: context.themed(ColorTokens.textTertiary))),
         SizedBox(height: SpaceTokens.m),
         for (var i = 0; i < rows.length; i++)
+          // Los GapRow entran con scale 0.96 para un ligero pop que los
+          // distingue visualmente de las filas de clase. Las filas de clase
+          // usan scale 1.0 (sin pop): ya tienen el riel y el acento como jerarquía.
           CascadeIn(
             index: i,
             guard: guard,
+            scale: rows[i] is _GapRow ? 0.96 : 1.0,
             child: Padding(
               padding: EdgeInsets.only(bottom: SpaceTokens.m),
               child: rows[i],
