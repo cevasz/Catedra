@@ -9,6 +9,7 @@ import '../../../domain/attendance/attendance.dart';
 import '../../../domain/import/schedule_parser.dart';
 import '../../../theme/tokens.g.dart';
 import '../data/claude_schedule_parser.dart';
+import '../data/column_schedule_parser.dart';
 import '../data/pdf_text.dart';
 
 /// Por qué falló la importación. Cada motivo tiene su texto en A5.
@@ -162,23 +163,51 @@ class ImportController extends StateNotifier<ImportState> {
       return;
     }
 
-    // Revelado en cascada: la heurística es instantánea, pero las filas
-    // entran de a pocas para que la persona vea qué se va encontrando.
+    // ── Primera pasada: la retícula, por coordenadas ────────────────────────
+    // Los horarios de servicios académicos vienen como tabla con una columna
+    // por día. Ahí la posición X de cada celda dice el día sin ambigüedad, y
+    // el resultado es exacto: nombre, días, horas, salón, docente y créditos.
+    final grid = ColumnScheduleParser.parse(text.positioned);
+
     final lines = text.lines;
-    final step = (lines.length / _revealSteps).ceil().clamp(1, lines.length);
-    var found = <ParsedClass>[];
-    for (var done = step; done <= lines.length + step - 1; done += step) {
-      final upTo = done.clamp(0, lines.length);
-      found = ScheduleParser.parse(lines.sublist(0, upTo));
-      state = ImportParsing(fileName: fileName, found: found, done: upTo, total: lines.length);
-      if (upTo == lines.length) break;
-      await Future<void>.delayed(MotionStagger.pdfRows);
-      if (_stale(generation)) return;
+    var found = grid;
+    if (found.isEmpty) {
+      // ── Segunda pasada: heurístico en cascada ─────────────────────────────
+      // El PDF no tiene forma de retícula. El heurístico lee el texto plano y
+      // las filas entran de a pocas para que la persona vea qué se encuentra.
+      final step = (lines.length / _revealSteps).ceil().clamp(1, lines.length);
+      for (var done = step; done <= lines.length + step - 1; done += step) {
+        final upTo = done.clamp(0, lines.length);
+        found = ScheduleParser.parse(lines.sublist(0, upTo));
+        state = ImportParsing(fileName: fileName, found: found, done: upTo, total: lines.length);
+        if (upTo == lines.length) break;
+        await Future<void>.delayed(MotionStagger.pdfRows);
+        if (_stale(generation)) return;
+      }
+    } else {
+      // La retícula se resuelve de golpe, pero A3 se lee mejor revelando fila
+      // a fila: es el mismo movimiento que hace el parser heurístico.
+      for (var shown = 1; shown <= found.length; shown++) {
+        state = ImportParsing(
+          fileName: fileName,
+          found: found.sublist(0, shown),
+          done: shown,
+          total: found.length,
+        );
+        if (shown == found.length) break;
+        await Future<void>.delayed(MotionStagger.pdfRows);
+        if (_stale(generation)) return;
+      }
     }
 
+    // ── Tercera pasada: Claude, solo como red de seguridad ──────────────────
+    // La importación no depende de la API: solo se pide ayuda cuando lo
+    // determinista no alcanzó —ninguna materia, o todas con dudas—. Con la
+    // retícula resuelta no se toca la red aunque haya clave configurada.
     var classes = found;
     var usedClaude = false;
-    if (ClaudeScheduleParser.isConfigured) {
+    final needsHelp = found.isEmpty || found.every((c) => c.isLowConfidence);
+    if (needsHelp && ClaudeScheduleParser.isConfigured) {
       state = ImportParsing(
         fileName: fileName,
         found: found,
@@ -194,8 +223,7 @@ class ImportController extends StateNotifier<ImportState> {
           usedClaude = true;
         }
       } on ClaudeParseException {
-        // Sin red o sin respuesta útil: se sigue con lo heurístico. El
-        // importador nunca depende de la API para funcionar.
+        // Sin red o sin respuesta útil: se sigue con lo que ya se encontró.
       }
     }
     if (_stale(generation)) return;
@@ -265,7 +293,19 @@ class ImportController extends StateNotifier<ImportState> {
     if (s is! ImportReview) return;
     final c = s.classes[index];
     final v = value.trim();
-    updateClass(index, v.isEmpty ? c.copyWith(clearSalon: true) : c.copyWith(salon: v));
+    // El salón que se escribe aquí vale para toda la materia: se limpia el de
+    // cada sesión para que la corrección no quede tapada por el del PDF.
+    final sessions = [for (final ses in c.sessions) ParsedSession(
+      diaSemana: ses.diaSemana,
+      inicio: ses.inicio,
+      fin: ses.fin,
+    )];
+    updateClass(
+      index,
+      v.isEmpty
+          ? c.copyWith(clearSalon: true, sessions: sessions)
+          : c.copyWith(salon: v, sessions: sessions),
+    );
   }
 
   void setSession(int classIndex, int sessionIndex, ParsedSession session) {
@@ -321,6 +361,18 @@ class ImportController extends StateNotifier<ImportState> {
     final existing = await dao.watchOverview().first;
     var colorCursor = existing.length;
 
+    // Los salones se comparten entre materias: se resuelven una sola vez.
+    final roomIds = <String, int>{};
+    Future<int?> ensureRoom(String? raw) async {
+      final codigo = raw?.trim();
+      if (codigo == null || codigo.isEmpty) return null;
+      final cached = roomIds[codigo];
+      if (cached != null) return cached;
+      final id = await dao.ensureRoom(codigo: codigo);
+      if (id != null) roomIds[codigo] = id;
+      return id;
+    }
+
     var sessions = 0;
     for (final c in s.classes) {
       final subjectId = await dao.createSubject(
@@ -328,15 +380,16 @@ class ImportController extends StateNotifier<ImportState> {
         colorIndex: colorCursor++ % SubjectPalette.length,
         limiteFaltas: defaultLimit,
         profesor: c.profesor,
+        creditos: c.creditos,
       );
-      final roomId = c.salon == null ? null : await dao.ensureRoom(codigo: c.salon);
       for (final ses in c.sessions) {
+        // La misma materia se dicta en salas distintas según el día.
         await dao.saveSession(
           subjectId: subjectId,
           diaSemana: ses.diaSemana,
           horaInicio: ses.inicio.raw,
           horaFin: ses.fin.raw,
-          roomId: roomId,
+          roomId: await ensureRoom(ses.salon ?? c.salon),
         );
         sessions++;
       }

@@ -1,12 +1,13 @@
-# Estado del programa · 11 de septiembre de 2026
+# Estado del programa · 22 de septiembre de 2026
 
 Cátedra es una app Flutter (Riverpod + Drift, offline primero) para
 estudiantes universitarios en Colombia. Este archivo dice qué funciona hoy,
 qué falta y en qué orden conviene seguir. Las razones de cada decisión están
 en `DESIGN_DECISIONS.md`; la estructura, en `ARCHITECTURE.md`.
 
-**Cifras:** 57 archivos Dart escritos a mano, 119 tests en verde,
-`flutter analyze` sin avisos, APK release compilando.
+**Cifras:** 66 archivos Dart escritos a mano, 136 tests en verde,
+`flutter analyze` sin errores ni avisos (quedan 254 sugerencias `info`, casi
+todas `prefer_const_constructors`, que `dart fix --apply` resuelve).
 
 ## Funciona
 
@@ -14,9 +15,11 @@ en `DESIGN_DECISIONS.md`; la estructura, en `ARCHITECTURE.md`.
 - [x] A1: portada con Erizógenes, lema y dos salidas; aparece mientras no haya materias
 - [x] A2: selector de PDF del sistema; el pie dice si el texto sale del teléfono o no
 - [x] Extracción de texto local (Syncfusion, en isolate); un PDF escaneado se detecta como tal
-- [x] Parser heurístico en Dart puro: una fila por clase, nombre arriba y horario abajo, encabezado de día; horas «1-3 pm» y «11-1»; profesor con etiqueta; misma materia en dos filas se une
+- [x] Parser de retícula en Dart puro (`ColumnScheduleParser`): usa la X de cada celda para saber el día. Lee nombre, días, horas, salón por día, código, docente y créditos; cruza la tabla con la sección «Detalle de las Materias» por código de asignatura
+- [x] Probado contra un horario real de la Santo Tomás (PACR42): 7 materias y 18 sesiones, todo correcto, sin marcar dudas. El fixture está en `test/fixtures/`
+- [x] Parser heurístico en Dart puro, para los PDF que no son retícula: una fila por clase, nombre arriba y horario abajo, encabezado de día; horas «1-3 pm» y «11-1»; profesor con etiqueta; misma materia en dos filas se une
 - [x] A3: las filas aparecen en cascada con «Detectando filas · N de M»; cancelable
-- [x] Segunda pasada con `claude-opus-5` (salida estructurada) solo si hay `ANTHROPIC_API_KEY`; si falla, se sigue con lo heurístico
+- [x] Tercera pasada con `claude-opus-5` (salida estructurada) solo como red de seguridad: se llama únicamente si lo determinista no encontró nada o lo encontró todo con dudas, y solo si hay `ANTHROPIC_API_KEY`. Con la retícula resuelta no se toca la red
 - [x] A4: revisión en sitio con motivo de cada duda, horario por chips, quitar materia, agregar a mano; «Confirmar N clases» se habilita cuando todo tiene nombre y día
 - [x] A5: error con la mascota confundida y tres cuerpos según el motivo
 - [x] Guardado: materias con color por orden, salones reutilizados, sesiones materializadas
@@ -83,19 +86,21 @@ en `DESIGN_DECISIONS.md`; la estructura, en `ARCHITECTURE.md`.
 ## Deuda conocida
 
 - La clave de Anthropic va embebida por `dart-define`: sirve para uso personal; una distribución pública necesita un servidor propio que haga la llamada.
-- El parser heurístico está probado con doce casos sintéticos, no con PDF reales de universidades; hay que recoger tres o cuatro y ajustar.
-- La segunda pasada con Claude no está probada contra la API real desde la app (sí el decodificador de su respuesta).
+- El parser de retícula está probado contra un PDF real (Santo Tomás). Faltan dos o tres de otras universidades para saber qué tan general es el formato `Cod./Prog./Grupo.`; el heurístico sigue con sus doce casos sintéticos.
+- No hay test del importador de punta a punta con una retícula: el escritor de PDF de Syncfusion fusiona las columnas de una misma fila, así que no se puede generar una retícula sintética. Se prueba el parser con el fixture real.
+- La pasada con Claude no está probada contra la API real desde la app (sí el decodificador de su respuesta). Hoy casi nunca se llama: solo si lo determinista falla.
 - La estimación de tiempo de ruta es fija por modo (15 / 35 / 20 min) hasta la Fase 4.
 - «Lo próximo» solo mira sesiones ya materializadas (16 semanas desde el alta de la clase).
 - Los formularios abren a pantalla completa también en tablet; podrían ser diálogos.
 - Sin tests de widget para las pantallas completas: se prueba el dominio, los providers de Hoy, la mascota y el tachado.
-- El proyecto no está bajo git.
+- `pacr42 (1) (3)-1.pdf` está versionado y lleva nombre y cédula del estudiante. El fixture de test sí está anonimizado.
 
 ## Siguiente paso recomendado
 
-1. Probar el importador con dos o tres PDF reales de horario (Servicios
-   académicos) y ajustar el parser con lo que falle; correr una vez con clave
-   para ver la segunda pasada.
+1. Conseguir dos o tres horarios reales de otras universidades y ver si la
+   retícula aguanta. Lo que hoy se da por supuesto del formato: encabezado con
+   los días en una línea o una por día, `Cod.` abriendo la celda, `Grupo.`
+   cerrando el nombre y la hora cerrando la celda.
 2. Fase 4 necesita diseño antes de código: permiso de ubicación denegado,
    pre-marcado por geofence y la notificación con escalado. Lo que sí se puede
    hacer ya sin diseño es geocodificar salones y la ruta a pie con «Abrir la

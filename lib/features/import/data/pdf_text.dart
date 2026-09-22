@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
@@ -7,13 +5,44 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 /// páginas tenía. `lines` vacío con `pages > 0` es un PDF escaneado como
 /// imagen: hay páginas pero no hay texto que leer.
 class PdfTextResult {
-  const PdfTextResult({required this.lines, required this.pages});
+  const PdfTextResult({required this.lines, required this.pages, this.positioned = const []});
 
   final List<String> lines;
   final int pages;
 
+  /// Líneas con coordenadas, útil para parsers que necesitan la posición X
+  /// (por ejemplo, para distinguir columnas de día en una tabla de horario).
+  final List<PositionedLine> positioned;
+
   bool get hasText => lines.any((l) => l.trim().isNotEmpty);
 }
+
+/// Una línea de texto con su posición en la página.
+class PositionedLine {
+  const PositionedLine({
+    required this.text,
+    required this.left,
+    required this.top,
+    required this.right,
+    required this.pageIndex,
+  });
+
+  final String text;
+  final double left;
+  final double top;
+  final double right;
+  final int pageIndex;
+}
+
+/// Espacios que no son el espacio normal: NBSP, espacios tipográficos y el
+/// separador de palabra. Los PDF de servicios académicos los usan para alinear
+/// columnas, y un `split(' ')` o un `startsWith('Aula. ')` fallan en silencio
+/// si no se normalizan aquí.
+final RegExp _exoticSpace = RegExp(r'[\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\ufeff]');
+
+/// Deja una línea con espacios normales y sin relleno en los extremos.
+String normalizeSpaces(String raw) =>
+    raw.replaceAll(_exoticSpace, ' ').replaceAll(RegExp(r'[ \t]+'), ' ').trim();
 
 /// Se lanza cuando el archivo no es un PDF legible (dañado, cifrado, o no es
 /// un PDF).
@@ -50,17 +79,34 @@ abstract final class PdfText {
         return a.bounds.left.compareTo(b.bounds.left);
       });
 
-      var lines = textLines.map((l) => l.text.trim()).where((t) => t.isNotEmpty).toList();
+      // Guardamos la posición de cada línea para que el parser de columnas
+      // pueda asignar cada celda al día correcto según su coordenada X.
+      final positioned = textLines
+          .where((l) => normalizeSpaces(l.text).isNotEmpty)
+          .map((l) => PositionedLine(
+                text: normalizeSpaces(l.text),
+                left: l.bounds.left,
+                top: l.bounds.top,
+                right: l.bounds.right,
+                pageIndex: l.pageIndex,
+              ))
+          .toList();
+
+      var lines = textLines.map((l) => normalizeSpaces(l.text)).where((t) => t.isNotEmpty).toList();
 
       // Algunos PDF no traen estructura de renglón y el extractor devuelve una
       // sola línea por página. En ese caso el texto plano parte mejor.
       if (lines.length <= pages) {
         final plain = PdfTextExtractor(doc).extractText(layoutText: true);
-        final split = plain.split(RegExp(r'\r?\n')).map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+        final split = plain
+            .split(RegExp(r'\r?\n'))
+            .map(normalizeSpaces)
+            .where((l) => l.isNotEmpty)
+            .toList();
         if (split.length > lines.length) lines = split;
       }
 
-      return PdfTextResult(lines: lines, pages: pages);
+      return PdfTextResult(lines: lines, pages: pages, positioned: positioned);
     } finally {
       doc.dispose();
     }

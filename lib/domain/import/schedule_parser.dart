@@ -19,25 +19,44 @@ enum ParseDoubt {
 }
 
 class ParsedSession {
-  const ParsedSession({required this.diaSemana, required this.inicio, required this.fin});
+  const ParsedSession({
+    required this.diaSemana,
+    required this.inicio,
+    required this.fin,
+    this.salon,
+  });
 
   /// ISO 8601: 1 = lunes … 7 = domingo.
   final int diaSemana;
   final MinutesOfDay inicio;
   final MinutesOfDay fin;
 
+  /// La misma materia se dicta en salones distintos según el día: en el PDF de
+  /// horario el aula va en la celda, no en la materia. `null` si no se supo.
+  final String? salon;
+
+  ParsedSession copyWith({int? diaSemana, MinutesOfDay? inicio, MinutesOfDay? fin, String? salon}) =>
+      ParsedSession(
+        diaSemana: diaSemana ?? this.diaSemana,
+        inicio: inicio ?? this.inicio,
+        fin: fin ?? this.fin,
+        salon: salon ?? this.salon,
+      );
+
   @override
   bool operator ==(Object other) =>
       other is ParsedSession &&
       other.diaSemana == diaSemana &&
       other.inicio == inicio &&
-      other.fin == fin;
+      other.fin == fin &&
+      other.salon == salon;
 
   @override
-  int get hashCode => Object.hash(diaSemana, inicio, fin);
+  int get hashCode => Object.hash(diaSemana, inicio, fin, salon);
 
   @override
-  String toString() => 'ParsedSession($diaSemana ${inicio.hhmm}–${fin.hhmm})';
+  String toString() =>
+      'ParsedSession($diaSemana ${inicio.hhmm}\u2013${fin.hhmm}${salon == null ? '' : ' @$salon'})';
 }
 
 class ParsedClass {
@@ -46,12 +65,23 @@ class ParsedClass {
     required this.sessions,
     this.profesor,
     this.salon,
+    this.codigo,
+    this.creditos,
     this.doubts = const {},
   });
 
   final String nombre;
   final String? profesor;
+
+  /// Salón representativo de la materia: el de la primera sesión que lo trae.
+  /// El salón exacto de cada clase vive en `ParsedSession.salon`.
   final String? salon;
+
+  /// Código de la asignatura en el sistema académico (`Cod. 41151`). Es la
+  /// llave con la que se cruza la retícula con la sección de detalle.
+  final String? codigo;
+
+  final int? creditos;
   final List<ParsedSession> sessions;
   final Set<ParseDoubt> doubts;
 
@@ -61,6 +91,8 @@ class ParsedClass {
     String? nombre,
     String? profesor,
     String? salon,
+    String? codigo,
+    int? creditos,
     List<ParsedSession>? sessions,
     Set<ParseDoubt>? doubts,
     bool clearProfesor = false,
@@ -70,6 +102,8 @@ class ParsedClass {
         nombre: nombre ?? this.nombre,
         profesor: clearProfesor ? null : (profesor ?? this.profesor),
         salon: clearSalon ? null : (salon ?? this.salon),
+        codigo: codigo ?? this.codigo,
+        creditos: creditos ?? this.creditos,
         sessions: sessions ?? this.sessions,
         doubts: doubts ?? this.doubts,
       );
