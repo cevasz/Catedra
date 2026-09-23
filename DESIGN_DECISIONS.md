@@ -698,6 +698,38 @@ teléfono, automático.
   `AccentCard` pone el filete uniforme con el radio y recorta la franja por
   dentro.
 
+## 37. Erizógenes rediseñado: erizo de mar, no bola de púas
+
+**Pedido del usuario (2026-09-23):** rediseñarlo por completo «para que tenga
+mucha más personalidad». Se exploraron tres láminas en el lienzo
+«Erizógenes rediseño» (actual, A fiel en pardo, B erizo de mar) y el usuario
+eligió **B**. Esto sustituye las proporciones portadas de
+`Erizogenes.dc.html`, que ya no está en el repositorio.
+
+- **Cuerpo:** cúpula de erizo de mar (más alta que honda) en violeta ciruela,
+  con hileras de tubérculos arriba. Las agujas van en dos capas con la punta
+  clara y un largo que varía con una suma de senos fija: irregulares a la
+  vista, idénticas en cada fotograma. Pies tubulares y sombra en el suelo.
+- **La cara es el personaje:** un párpado a media asta (escepticismo), el ojo
+  derecho agrandado por el cristal del monóculo, cejas, media sonrisa y una
+  barba de tres púas: la de Diógenes. Las seis poses siguen siendo las mismas;
+  cada una es una combinación de párpados, cejas, boca, púas y monóculo, no un
+  dibujo aparte. Satisfecho es párpados pesados y media sonrisa, no un «¡yay!».
+  Confundido deja caer el monóculo, que cuelga de la cadena.
+- **Contrato:** `color.mascot` cambia de paleta y suma `spikeTip`,
+  `tubercle`, `brow` y `shadow`. `mascot.motion` guarda las amplitudes de las
+  reacciones (salto, erizado, sombra, mirada); `mascotHop` y `mascotDizzy`
+  dejan de tomar prestados `mascotEnter` y `blinkMin`, y `dizzyTaps` /
+  `pokeWindowMs` sustituyen al `5` suelto. La geometría del dibujo sigue
+  exenta del guardia: es la ilustración.
+- **Correcciones del mismo paso:** los vaivenes usan por fin la
+  `easeInOutSine` del contrato (antes eran ondas triangulares que frenaban en
+  seco); un parpadeo en vuelo ya no deja una segunda cadena de parpadeos si
+  cambia la pose; la esquina tenía dos `Semantics(button)` anidados y una
+  pista que hablaba de «consejos».
+- **Red:** `mascot_still_golden_test.dart` congela las seis poses en claro y
+  oscuro más los tamaños pequeños. Es lo que se rasteriza para los widgets.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura

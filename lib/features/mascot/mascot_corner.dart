@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../../l10n/strings.g.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/motion.dart';
 import '../../theme/tokens.g.dart';
@@ -64,14 +65,14 @@ class MascotCorner extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Semantics(
-                button: true,
-                child: MascotView(
-                  pose: line?.pose ?? MascotPose.reposo,
-                  size: size,
-                  host: MascotHost.corner,
-                  onTap: onTap,
-                ),
+              // MascotView ya es un botón para el lector de pantalla; aquí solo
+              // cambia qué hace tocarlo.
+              MascotView(
+                pose: line?.pose ?? MascotPose.reposo,
+                size: size,
+                host: MascotHost.corner,
+                onTap: onTap,
+                semanticHint: SMascotVoice.hintCorner,
               ),
               AnimatedSwitcher(
                 duration: slide,

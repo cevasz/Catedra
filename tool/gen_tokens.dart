@@ -574,7 +574,20 @@ void _mascot(StringBuffer b, Map<String, dynamic> m) {
   b.writeln('  static const double smallThreshold = ${(m['smallThreshold'] as num).toDouble()};');
   b.writeln('  static const int spikesNormal = ${(m['spikes'] as Map)['normal']};');
   b.writeln('  static const int spikesSmall = ${(m['spikes'] as Map)['small']};');
+  b.writeln('  /// Segunda capa de agujas, más cortas, entre las de fuera. Solo a tamaño normal.');
+  b.writeln('  static const int spikesFront = ${(m['spikes'] as Map)['front']};');
+  b.writeln('  static const double monocleStrokeNormal = ${((m['monocleStroke'] as Map)['normal'] as num).toDouble()};');
+  b.writeln('  static const double monocleStrokeSmall = ${((m['monocleStroke'] as Map)['small'] as num).toDouble()};');
   b.writeln('  static const bool rimLightOnLightTheme = ${m['rimLightOnLightTheme']};');
+  b.writeln('  /// Ventana en la que [dizzyTaps] toques seguidos lo marean.');
+  b.writeln('  static const Duration pokeWindow = Duration(milliseconds: ${m['pokeWindowMs']});');
+  b.writeln('  static const int dizzyTaps = ${m['dizzyTaps']};');
+  b.writeln('  /// Cuánto se mueve cada reacción, en unidades del lienzo de 100×100 o en');
+  b.writeln('  /// fracciones. La geometría del dibujo no está aquí; el movimiento, sí.');
+  for (final e in (m['motion'] as Map<String, dynamic>).entries) {
+    if (_meta(e.key)) continue;
+    b.writeln('  static const double ${e.key} = ${(e.value as num).toDouble()};');
+  }
   b.writeln('  /// Amplitudes de los micro-movimientos. Las duraciones van en');
   b.writeln('  /// MotionDurations; aquí solo cuánto se mueve cada cosa.');
   b.writeln('  static const double breatheScaleMax = ${((m['breatheScale'] as List)[1] as num).toDouble()};');
