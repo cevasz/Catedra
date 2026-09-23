@@ -78,7 +78,9 @@ jobs:
           # El versionCode crece con cada publicación y siempre supera al de
           # las compilaciones locales (que usan el +1 de pubspec).
           CODE=$(( GITHUB_RUN_NUMBER + 1 ))
-          flutter build apk --release --build-name="$NAME" --build-number="$CODE"
+          # Solo arm64: es lo que usan los teléfonos de hoy (el Galaxy A56
+          # incluido) y la descarga pesa un tercio que el APK universal.
+          flutter build apk --release --target-platform android-arm64 --build-name="$NAME" --build-number="$CODE"
           cp build/app/outputs/flutter-apk/app-release.apk catedra.apk
           NOTES=$(git tag -l --format='%(contents)' "$TAG" | sed '/^-----BEGIN/,$d')
           jq -n \
