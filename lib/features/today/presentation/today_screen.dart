@@ -21,6 +21,7 @@ import '../../../theme/transitions.dart';
 import '../../mascot/application/mascot_voice.dart';
 import '../../mascot/mascot_companion.dart';
 import '../../mascot/mascot_loader.dart';
+import '../../mascot/mascot_error.dart';
 import '../../mascot/mascot_view.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../shell/presentation/app_shell.dart';
@@ -105,9 +106,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
               ],
             ),
           ),
-          error: (e, _) => Center(
-            child: Text('$e', style: context.type(TypeTokens.bodyM)),
-          ),
+          error: (e, _) => MascotError(error: e, onRetry: () => ref.invalidate(todayStateProvider)),
           data: (s) {
             _syncUrgentHaptic(s.isUrgent);
             final header = _Header(day: today);

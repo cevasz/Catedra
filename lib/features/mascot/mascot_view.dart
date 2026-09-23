@@ -81,6 +81,7 @@ export '../../theme/tokens.g.dart' show MascotPose;
 /// revienta con un mensaje claro: la regla de diseño es también de código.
 enum MascotHost {
   splash('A1 splash'),
+  loadError('error de carga'),
   vase('jarrón de fondo'),
   pdfParsing('A3 procesando PDF'),
   pdfError('A5 error de PDF'),

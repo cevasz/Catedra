@@ -9,6 +9,7 @@ import '../../../l10n/strings.g.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/layout.dart';
 import '../../../theme/tokens.g.dart';
+import '../../mascot/mascot_error.dart';
 import '../../mascot/mascot_loader.dart';
 import '../../subjects/application/subjects_providers.dart';
 import '../../subjects/presentation/subject_actions.dart';
@@ -45,7 +46,10 @@ class SubjectDetailScreen extends ConsumerWidget {
 
     return async.when(
       loading: () => const Scaffold(body: MascotLoader()),
-      error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(),
+        body: MascotError(error: e, onRetry: () => ref.invalidate(subjectDetailProvider(subjectId))),
+      ),
       data: (state) {
         // La materia se borró mientras la pantalla estaba abierta. Se cierra
         // sola en vez de quedarse enseñando datos que ya no existen.

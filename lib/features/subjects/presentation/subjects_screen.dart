@@ -12,6 +12,7 @@ import '../../../theme/strike_through.dart';
 import '../../../theme/tokens.g.dart';
 import '../../../theme/transitions.dart';
 import '../../import/presentation/import_pdf_screen.dart';
+import '../../mascot/mascot_error.dart';
 import '../../mascot/mascot_loader.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../subject_detail/presentation/subject_detail_screen.dart';
@@ -23,7 +24,8 @@ import 'subject_form_screen.dart';
 ///
 /// Cada tarjeta contesta de un vistazo las dos preguntas que importan: cuántas
 /// faltas te quedan y cómo vas de nota. Sin mascota: la lista de pantallas
-/// permitidas del contrato no la incluye.
+/// permitidas del contrato no la incluye, salvo si la carga falla (`error de
+/// carga`).
 class SubjectsScreen extends ConsumerWidget {
   const SubjectsScreen({super.key});
 
@@ -69,7 +71,7 @@ class SubjectsScreen extends ConsumerWidget {
 
 /// La lista con su app bar y su FAB. Es la pantalla entera en teléfono y el
 /// panel izquierdo en tablet.
-class _ListScaffold extends StatelessWidget {
+class _ListScaffold extends ConsumerWidget {
   const _ListScaffold({required this.subjects, required this.selectedId});
 
   final AsyncValue<List<SubjectCard>> subjects;
@@ -78,7 +80,7 @@ class _ListScaffold extends StatelessWidget {
   final int? selectedId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text(SSubjects.title),
@@ -104,7 +106,7 @@ class _ListScaffold extends StatelessWidget {
             ),
       body: subjects.when(
         loading: () => const MascotLoader(),
-        error: (e, _) => _Failure(error: e),
+        error: (e, _) => MascotError(error: e, onRetry: () => ref.invalidate(subjectsOverviewProvider)),
         data: (list) => list.isEmpty
             ? const _Empty()
             : _List(subjects: list, selectedId: selectedId),
@@ -428,25 +430,3 @@ class _Empty extends StatelessWidget {
 
 /// Un fallo de base de datos se enseña, no se traga. Sin texto inventado: el
 /// mensaje del error es el mensaje.
-class _Failure extends StatelessWidget {
-  const _Failure({required this.error});
-  final Object error;
-
-  @override
-  Widget build(BuildContext context) {
-    final b = Theme.of(context).brightness;
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(SpaceTokens.screenMargin),
-        child: Text(
-          '$error',
-          textAlign: TextAlign.center,
-          style: context.type(
-            TypeTokens.bodyM,
-            color: ColorTokens.accentUrgent.of(b),
-          ),
-        ),
-      ),
-    );
-  }
-}

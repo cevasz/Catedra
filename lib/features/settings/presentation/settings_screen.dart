@@ -13,12 +13,14 @@ import '../../../theme/layout.dart';
 import '../../../theme/tokens.g.dart';
 import '../../alarms/application/alarms_controller.dart';
 import '../../mascot/application/mascot_voice.dart';
+import '../../mascot/mascot_error.dart';
 import '../../mascot/mascot_loader.dart';
 
 /// Ajustes. Se guarda al tocar: no hay botón de guardar porque ningún ajuste
 /// es destructivo y todos se ven en vivo en Hoy.
 ///
-/// Sin mascota: «ajustes» está en la lista de pantallas prohibidas.
+/// Sin mascota, salvo si la carga falla (`error de carga`): «ajustes» es una
+/// pantalla de trabajo.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -31,7 +33,7 @@ class SettingsScreen extends ConsumerWidget {
       body: ContentWidth(
         child: settings.when(
           loading: () => const MascotLoader(),
-          error: (e, _) => Center(child: Text('$e')),
+          error: (e, _) => MascotError(error: e, onRetry: () => ref.invalidate(settingsProvider)),
           data: (s) => _Loaded(settings: s),
         ),
       ),

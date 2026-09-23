@@ -843,6 +843,23 @@ vida, con interacciones al estilo del clip de Office. Diseñado en el lienzo
 - La luz de borde desaparece: el contorno de tinta y el volumen hacen su
   trabajo en los dos temas.
 
+## 42. Errores de carga con Erizógenes, no con la excepción en crudo
+
+Fase 5 de la auditoría. Hoy, Semana, Materias, Ajustes y el detalle de una
+materia enseñaban `Text('$e')`: el texto de la excepción de Dart, sin salida.
+
+- **`MascotError`:** Erizógenes confundido entra tropezando, dice una frase
+  seca (`loadError.titleVariants`, sorteada una vez para que no parpadee),
+  explica qué pasó («tus datos siguen guardados en el teléfono») y ofrece
+  **Reintentar**, que invalida el provider de esa pantalla. El detalle técnico
+  queda detrás de «Ver detalle», seleccionable para quien necesite copiarlo.
+  El error no se disculpa y no es vago.
+- **Contrato:** nuevo host `error de carga` en `allowedScreens` y tamaño
+  `sizesUsed.loadError`. Materias y Ajustes siguen sin mascota en su uso
+  normal; solo aparece si la carga falla. Materia perdida y calculadora
+  imposible siguen sin mascota: eso no es un error de carga, es una mala
+  noticia.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura
