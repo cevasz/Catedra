@@ -118,6 +118,75 @@ void main() {
     }
   });
 
+  dynamic state(WidgetTester tester) => tester.state(find.byType(MascotView));
+
+  Widget beating(MascotBeat? beat, Object? key, {bool reduced = false, MascotPose pose = MascotPose.reposo}) =>
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: MediaQuery(
+          data: MediaQueryData(disableAnimations: reduced),
+          child: Center(
+            child: MascotView(pose: pose, size: 118, host: MascotHost.corner, beat: beat, beatKey: key),
+          ),
+        ),
+      );
+
+  for (final beat in MascotBeat.values) {
+    testWidgets('el gesto $beat se reproduce entero y termina', (tester) async {
+      await tester.pumpWidget(beating(null, 0));
+      await tester.pump(MotionDurations.mascotEnter);
+      await tester.pumpWidget(beating(beat, 1));
+      await tester.pump();
+      expect(state(tester).debugBeat, beat);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(beat.duration ~/ 6);
+      }
+      await tester.pump(MotionDurations.fast);
+      expect(tester.takeException(), isNull);
+      expect(state(tester).debugBeat, isNull);
+    });
+  }
+
+  testWidgets('la misma frase con otra clave repite el gesto', (tester) async {
+    await tester.pumpWidget(beating(MascotBeat.hop, 1));
+    await tester.pump(MotionDurations.mascotEnter + MotionDurations.mascotHop);
+    expect(state(tester).debugBeat, isNull);
+    await tester.pumpWidget(beating(MascotBeat.hop, 1));
+    await tester.pump();
+    expect(state(tester).debugBeat, isNull, reason: 'misma clave: no se repite');
+    await tester.pumpWidget(beating(MascotBeat.hop, 2));
+    await tester.pump();
+    expect(state(tester).debugBeat, MascotBeat.hop);
+  });
+
+  testWidgets('cambiar de pose interpola; bajo reduced-motion salta', (tester) async {
+    await tester.pumpWidget(beating(null, 0));
+    await tester.pump(MotionDurations.mascotEnter);
+    await tester.pumpWidget(beating(null, 0, pose: MascotPose.dormido));
+    await tester.pump();
+    expect(state(tester).debugMorphing, isTrue);
+    // pump() sin duración no avanza el reloj: hace falta un poco más que la
+    // interpolación para verla terminar.
+    await tester.pump(MotionDurations.mascotMorph + MotionDurations.fast);
+    expect(state(tester).debugMorphing, isFalse);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(beating(null, 0, reduced: true, pose: MascotPose.satisfecho));
+    await tester.pump();
+    expect(state(tester).debugMorphing, isFalse);
+  });
+
+  testWidgets('bajo reduced-motion no hay gesto', (tester) async {
+    await tester.pumpWidget(beating(null, 0, reduced: true));
+    await tester.pump(ReducedMotion.duration);
+    await tester.pumpWidget(beating(MascotBeat.celebrate, 1, reduced: true));
+    await tester.pump();
+    expect(state(tester).debugBeat, isNull);
+    // A mitad de lo que duraría el gesto, nada se está moviendo.
+    await tester.pump(MotionDurations.mascotCelebrate ~/ 2);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
+
   testWidgets('bajo reduced-motion aparece con fade y se queda quieta', (tester) async {
     await tester.pumpWidget(host(MascotPose.dormido, reduced: true));
     await tester.pump(ReducedMotion.duration);

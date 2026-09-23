@@ -73,6 +73,8 @@ class MascotCorner extends ConsumerWidget {
                 host: MascotHost.corner,
                 onTap: onTap,
                 semanticHint: SMascotVoice.hintCorner,
+                beat: line?.beat,
+                beatKey: line?.serial,
               ),
               AnimatedSwitcher(
                 duration: slide,

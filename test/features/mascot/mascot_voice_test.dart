@@ -37,6 +37,27 @@ void main() {
     }
   });
 
+  test('cada reacción lleva su gesto, y la esquina lo transporta', () {
+    // Solo terminar una tarea se celebra; una falta suspira; cancelada, nada.
+    expect(MascotReaction.taskDone.beat, MascotBeat.celebrate);
+    expect(MascotReaction.absence.beat, MascotBeat.sigh);
+    expect(MascotReaction.cancelled.beat, isNull);
+    expect(
+      MascotReaction.values.where((r) => r.beat == MascotBeat.celebrate),
+      [MascotReaction.taskDone],
+      reason: 'celebrar es escaso a propósito',
+    );
+
+    fakeAsync((async) {
+      final c = MascotCornerController(VariantPicker(math.Random(1)));
+      c.react(MascotReaction.taskDone);
+      expect(c.state?.beat, MascotBeat.celebrate);
+      c.muse();
+      expect(c.state?.beat, isNull, reason: 'una sentencia suelta no lleva gesto');
+      c.dispose();
+    });
+  });
+
   test('marcar una clase se comenta; justificada y posible falta, no', () {
     expect(reactionForStatus(SessionStatus.asistio), MascotReaction.attended);
     expect(reactionForStatus(SessionStatus.falto), MascotReaction.absence);

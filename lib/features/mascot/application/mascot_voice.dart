@@ -35,6 +35,17 @@ enum MascotReaction {
         cancelled => MascotPose.dormido,
         _ => MascotPose.satisfecho,
       };
+
+  /// Con qué gesto lo acompaña. Contenido a propósito: solo terminar una
+  /// tarea merece el saltito de «se da cuenta y celebra»; una falta es un
+  /// suspiro, no un drama; una cancelación ni se comenta con el cuerpo.
+  MascotBeat? get beat => switch (this) {
+        taskDone => MascotBeat.celebrate,
+        absence => MascotBeat.sigh,
+        cancelled => null,
+        grade || taskAdded => MascotBeat.notice,
+        attended || saved || alarms => MascotBeat.hop,
+      };
 }
 
 /// Qué comenta el erizo cuando marcas una clase. Justificada y «posible
@@ -49,10 +60,13 @@ MascotReaction? reactionForStatus(SessionStatus status) => switch (status) {
 
 /// Una frase que Erizógenes está diciendo ahora mismo en la esquina.
 class MascotLine {
-  const MascotLine(this.text, this.pose, this.serial);
+  const MascotLine(this.text, this.pose, this.serial, {this.beat});
 
   final String text;
   final MascotPose pose;
+
+  /// El gesto que acompaña a la frase, si lo hay.
+  final MascotBeat? beat;
 
   /// Sube con cada frase: dos frases iguales seguidas también se animan.
   final int serial;
@@ -100,7 +114,7 @@ class MascotCornerController extends StateNotifier<MascotLine?> {
   int _serial = 0;
 
   void react(MascotReaction? reaction) {
-    if (reaction != null) say(_picker.pick(reaction.lines), reaction.pose);
+    if (reaction != null) say(_picker.pick(reaction.lines), reaction.pose, beat: reaction.beat);
   }
 
   /// Una frase suelta, sin dato detrás: una sentencia o una queja por el toque.
@@ -109,10 +123,10 @@ class MascotCornerController extends StateNotifier<MascotLine?> {
         MascotPose.reposo,
       );
 
-  void say(String text, MascotPose pose) {
+  void say(String text, MascotPose pose, {MascotBeat? beat}) {
     if (text.isEmpty) return;
     _hide?.cancel();
-    state = MascotLine(text, pose, ++_serial);
+    state = MascotLine(text, pose, ++_serial, beat: beat);
     _hide = Timer(kMascotLineDuration, dismiss);
   }
 

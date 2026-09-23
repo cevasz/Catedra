@@ -617,6 +617,8 @@ class _ErrorView extends ConsumerWidget {
             pose: MascotPose.confundido,
             size: MascotTokens.sizePdfError,
             host: MascotHost.pdfError,
+            // Entra tropezando: algo falló, sin dramatizar.
+            beat: MascotBeat.stumble,
           ),
         ),
         SizedBox(height: SpaceTokens.xl),

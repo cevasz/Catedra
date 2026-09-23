@@ -788,6 +788,29 @@ Hércules**.
   verlo haría falta que el loader sobreviva un instante al dato, y eso toca
   las seis pantallas que lo usan.
 
+## 40. Las poses se interpolan y las reacciones tienen gesto
+
+Fases 3 y 4 de la auditoría de Erizógenes.
+
+- **Interpolación:** cambiar de pose ya no salta de un fotograma a otro.
+  Cuerpo, párpados, cejas, mirada, púas y lámpara se interpolan en
+  `mascotMorph` (360 ms, easeOutCubic); la boca, si corre o si respira
+  cambian a mitad de camino. Bajo reduced-motion, de golpe. El tumbado de las
+  púas al dormir pasó a ser proporcional (antes era un salto al pasar de 0)
+  para poder interpolarse; el fotograma final de cada pose no cambia (los
+  goldens siguen iguales).
+- **Gestos (`MascotBeat`):** `notice` (se da cuenta), `celebrate` (se da
+  cuenta y un saltito seco), `hop`, `sigh` (suspira y se hunde) y `stumble`
+  (tropieza de lado). Viven en el pintor como mandos que se suman a la pose,
+  no como poses nuevas. Las amplitudes están en `mascot.motion`.
+- **Quién decide:** las pantallas siguen diciendo solo qué pasó
+  (`MascotReaction`); cada reacción declara su gesto y la esquina lo
+  reproduce con la frase. Celebrar es escaso a propósito: solo terminar una
+  tarea. Una falta es un suspiro; una cancelación no mueve el cuerpo; nota y
+  tarea nueva, «se da cuenta»; asistir, guardar y alarmas, un salto. El error
+  del PDF entra tropezando.
+- **Reduced motion:** sin gesto. La pose y la frase ya comunican lo que pasó.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura

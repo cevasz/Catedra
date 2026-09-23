@@ -54,6 +54,13 @@
 //   arrastrar el dedo      la mirada sigue al dedo
 //   Quien lo usa recibe `onTap` / `onLongPress` para decir algo útil.
 //
+// CAMBIOS Y GESTOS (§40)
+//   cambio de pose         cuerpo, cara, púas y lámpara se interpolan
+//                          (mascotMorph); lo discreto cambia a mitad
+//   `beat` + `beatKey`     un gesto de una vez: notice, celebrate, hop, sigh,
+//                          stumble. Quien lo pone dice qué pasó; el erizo
+//                          decide cómo se mueve
+//
 // Bajo reduced-motion las poses se congelan en su primer fotograma. No se
 // ocultan: la mascota sigue ahí, quieta.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,6 +100,33 @@ enum MascotHost {
   final String contractName;
 }
 
+/// Gestos de una sola vez con los que reacciona a lo que pasa. Son pocos y
+/// secos: la personalidad está en cuánto se contiene.
+enum MascotBeat {
+  /// Salta una vez, como al tocarlo.
+  hop,
+
+  /// Se da cuenta: abre los ojos, sube las cejas, se eriza un poco.
+  notice,
+
+  /// Se da cuenta y da un saltito. Para lo que de verdad merece algo.
+  celebrate,
+
+  /// Suspira: párpados abajo, púas caídas, se hunde un poco.
+  sigh,
+
+  /// Tropieza de lado y se le desordenan las púas. Para los errores.
+  stumble;
+
+  Duration get duration => switch (this) {
+        hop => MotionDurations.mascotHop,
+        notice => MotionDurations.mascotNotice,
+        celebrate => MotionDurations.mascotCelebrate,
+        sigh => MotionDurations.mascotSigh,
+        stumble => MotionDurations.mascotStumble,
+      };
+}
+
 class MascotView extends StatefulWidget {
   const MascotView({
     required this.pose,
@@ -103,6 +137,8 @@ class MascotView extends StatefulWidget {
     this.onLongPress,
     this.semanticHint,
     this.weary = false,
+    this.beat,
+    this.beatKey,
     super.key,
   });
 
@@ -130,6 +166,13 @@ class MascotView extends StatefulWidget {
   /// pasado `mascotLoaderLong`, no la pantalla.
   final bool weary;
 
+  /// Un gesto de una sola vez. Suena al montarse si viene puesto y cada vez
+  /// que cambia [beatKey]: quien lo pone solo dice qué pasó, no anima nada.
+  final MascotBeat? beat;
+
+  /// Cambiarla vuelve a reproducir [beat], aunque sea el mismo gesto.
+  final Object? beatKey;
+
   @override
   State<MascotView> createState() => _MascotViewState();
 }
@@ -140,7 +183,14 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
   late final AnimationController _enter; // una vez, al aparecer
   late final AnimationController _blink;
   late final AnimationController _poke; // salto al tocarlo
+  late final AnimationController _morph; // de una pose a la siguiente
+  late final AnimationController _beat; // un gesto de una sola vez
   bool _entered = false;
+
+  /// La pose que ya se ve y de la que parte la interpolación.
+  MascotPose? _shownPose;
+  MascotPose? _morphFrom;
+  MascotBeat? _activeBeat;
 
   /// Hacia dónde mira mientras lo arrastras, en -1..1 por eje.
   Offset _look = Offset.zero;
@@ -177,6 +227,8 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
     _enter = AnimationController(vsync: this, duration: MotionDurations.mascotEnter);
     _blink = AnimationController(vsync: this, duration: MotionDurations.mascotBlink);
     _poke = AnimationController(vsync: this, duration: MotionDurations.mascotHop);
+    _morph = AnimationController(vsync: this, duration: MotionDurations.mascotMorph, value: 1);
+    _beat = AnimationController(vsync: this, duration: MotionDurations.mascotHop);
   }
 
   /// La pose que se dibuja: la pedida, salvo que esté mareado.
@@ -184,6 +236,12 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
 
   @visibleForTesting
   MascotPose get debugDrawnPose => _pose;
+
+  @visibleForTesting
+  MascotBeat? get debugBeat => _beat.isAnimating ? _activeBeat : null;
+
+  @visibleForTesting
+  bool get debugMorphing => _morph.isAnimating;
 
   void _handleTap() {
     unawaited(Haptics.fire('tocarMascota'));
@@ -244,6 +302,16 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
   void didUpdateWidget(MascotView old) {
     super.didUpdateWidget(old);
     if (old.pose != widget.pose) _syncMotion();
+    if (widget.beat != null && widget.beatKey != old.beatKey) _playBeat(widget.beat!);
+  }
+
+  /// Bajo reduced-motion no hay gesto: la pose y la frase ya lo dicen.
+  void _playBeat(MascotBeat beat) {
+    if (MotionGuard.of(context).reduced) return;
+    _activeBeat = beat;
+    _beat
+      ..duration = beat.duration
+      ..forward(from: 0);
   }
 
   @override
@@ -256,11 +324,24 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
       // escala no se toca y solo aparece.
       _enter.duration = MotionGuard.of(context).duration(MotionDurations.mascotEnter);
       _enter.forward();
+      if (widget.beat != null) _playBeat(widget.beat!);
     }
   }
 
   void _syncMotion() {
     final guard = MotionGuard.of(context);
+
+    // Cambio de pose: se interpola desde la que se veía. Bajo reduced-motion
+    // cambia de golpe.
+    final target = _pose;
+    if (_shownPose != null && _shownPose != target && !guard.reduced) {
+      _morphFrom = _shownPose;
+      _morph.forward(from: 0);
+    } else if (guard.reduced) {
+      _morph.value = 1;
+    }
+    _shownPose = target;
+
     _blinkGeneration++;
     _blinkTimer?.cancel();
 
@@ -318,6 +399,8 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
     _blinkTimer?.cancel();
     _dizzyTimer?.cancel();
     _poke.dispose();
+    _morph.dispose();
+    _beat.dispose();
     _idle.dispose();
     _aux.dispose();
     _enter.dispose();
@@ -343,7 +426,7 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
       child: SizedBox.square(
         dimension: widget.size,
         child: AnimatedBuilder(
-          animation: Listenable.merge([_idle, _aux, _blink, _enter, _poke]),
+          animation: Listenable.merge([_idle, _aux, _blink, _enter, _poke, _morph, _beat]),
           builder: (context, _) {
             // Entrada: sobrepasa un poco y asienta. El origen es la base de la
             // silueta para que parezca que llega al suelo, no que se infla.
@@ -375,6 +458,10 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
                     look: _look,
                     petted: _petted,
                     weary: widget.weary,
+                    from: _morph.isAnimating ? _morphFrom : null,
+                    morph: MotionCurves.easeOutCubic.transform(_morph.value),
+                    beat: _beat.isAnimating ? _activeBeat : null,
+                    beatT: _beat.value,
                   ),
                 ),
               ),
@@ -534,6 +621,14 @@ class _Lamp {
 
   /// Dormido o confundido la lámpara está en el suelo: nadie la sostiene.
   final bool held;
+
+  static _Lamp lerp(_Lamp a, _Lamp b, double t) => _Lamp(
+        Offset.lerp(a.at, b.at, t)!,
+        rotation: a.rotation + (b.rotation - a.rotation) * t,
+        flame: a.flame + (b.flame - a.flame) * t,
+        lean: a.lean + (b.lean - a.lean) * t,
+        held: t >= 0.5 ? b.held : a.held,
+      );
 }
 
 /// Una pose es una cara, una actitud de las púas y una lámpara sobre el mismo
@@ -589,6 +684,66 @@ class _PoseSpec {
   /// 0 ordenadas, 1 cada una por su lado (desconcierto).
   final double irregular;
   final bool breathes, runs, paw, smallPupils;
+
+  /// De una pose a otra. Lo continuo se interpola; lo discreto (boca, si
+  /// corre, si respira) cambia a mitad de camino.
+  static _PoseSpec lerp(_PoseSpec a, _PoseSpec b, double t) {
+    double l(double x, double y) => x + (y - x) * t;
+    final late = t >= 0.5;
+    return _PoseSpec(
+      cy: l(a.cy, b.cy),
+      ryTop: l(a.ryTop, b.ryTop),
+      ryBottom: l(a.ryBottom, b.ryBottom),
+      tilt: l(a.tilt, b.tilt),
+      lidLeft: l(a.lidLeft, b.lidLeft),
+      lidRight: l(a.lidRight, b.lidRight),
+      browLeft: Offset.lerp(a.browLeft, b.browLeft, t)!,
+      browRight: Offset.lerp(a.browRight, b.browRight, t)!,
+      gaze: Offset.lerp(a.gaze, b.gaze, t)!,
+      mouth: late ? b.mouth : a.mouth,
+      lamp: _Lamp.lerp(a.lamp, b.lamp, t),
+      sweep: l(a.sweep, b.sweep),
+      droop: l(a.droop, b.droop),
+      bristle: l(a.bristle, b.bristle),
+      irregular: l(a.irregular, b.irregular),
+      breathes: late ? b.breathes : a.breathes,
+      runs: late ? b.runs : a.runs,
+      paw: late ? b.paw : a.paw,
+      smallPupils: late ? b.smallPupils : a.smallPupils,
+    );
+  }
+
+  /// La misma pose con un gesto encima: cada mando se suma a lo que ya hay.
+  _PoseSpec adjusted({
+    required double Function(double) lids,
+    double browLift = 0,
+    double bristle = 0,
+    double droop = 0,
+    double irregular = 0,
+    double tilt = 0,
+    Offset gaze = Offset.zero,
+  }) =>
+      _PoseSpec(
+        cy: cy,
+        ryTop: ryTop,
+        ryBottom: ryBottom,
+        tilt: this.tilt + tilt,
+        lidLeft: lids(lidLeft),
+        lidRight: lids(lidRight),
+        browLeft: browLeft.translate(-browLift, 0),
+        browRight: browRight.translate(-browLift, 0),
+        gaze: this.gaze + gaze,
+        mouth: mouth,
+        lamp: lamp,
+        sweep: sweep,
+        droop: this.droop + droop,
+        bristle: this.bristle + bristle,
+        irregular: math.min(1, this.irregular + irregular),
+        breathes: breathes,
+        runs: runs,
+        paw: paw,
+        smallPupils: smallPupils,
+      );
 }
 
 const Map<MascotPose, _PoseSpec> _poses = {
@@ -687,6 +842,9 @@ const Map<MascotPose, _PoseSpec> _poses = {
     smallPupils: true,
   ),
 };
+
+/// Cuánto se tumban las púas al dormir: la referencia para acortarlas.
+const double _sleepDroop = 38;
 
 /// Semieje horizontal del cuerpo: igual en todas las poses.
 const double _bodyRx = 28;
@@ -814,6 +972,10 @@ class _ErizogenesPainter extends CustomPainter {
     this.petted = false,
     this.weary = false,
     this.figure = false,
+    this.from,
+    this.morph = 1,
+    this.beat,
+    this.beatT = 0,
   });
 
   final MascotPose pose;
@@ -846,6 +1008,14 @@ class _ErizogenesPainter extends CustomPainter {
   /// Pintado en el ánfora: figura negra, sin sombra ni luz de borde.
   final bool figure;
 
+  /// Pose de la que viene y cuánto lleva (0..1, ya con curva). Null: quieta.
+  final MascotPose? from;
+  final double morph;
+
+  /// Gesto en curso y su progreso 0..1.
+  final MascotBeat? beat;
+  final double beatT;
+
   static final Paint _line = Paint()
     ..style = PaintingStyle.stroke
     ..strokeCap = StrokeCap.round
@@ -855,9 +1025,39 @@ class _ErizogenesPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = _poses[pose]!;
     final c = _c;
-    final hop = poke > 0 ? math.sin(poke * math.pi) : 0.0;
+    final base = from != null && morph < 1 ? _PoseSpec.lerp(_poses[from]!, _poses[pose]!, morph) : _poses[pose]!;
+
+    // El gesto se reparte en unos pocos mandos: n (se da cuenta), s (suspira),
+    // e (tropieza) y un salto con su propia fase.
+    final t = beat == null ? 0.0 : beatT;
+    double bump(double x) => x <= 0 || x >= 1 ? 0 : math.sin(math.pi * x);
+    final n = switch (beat) {
+      MascotBeat.notice => bump(t),
+      MascotBeat.celebrate => bump(t / 0.4),
+      _ => 0.0,
+    };
+    final sigh = beat == MascotBeat.sigh ? bump(t) : 0.0;
+    final trip = beat == MascotBeat.stumble ? (1 - t) : 0.0;
+    final (double hopPhase, double hopAmp) = poke > 0
+        ? (poke, 1.0)
+        : switch (beat) {
+            MascotBeat.hop => (t, 1.0),
+            MascotBeat.celebrate when t > 0.4 => ((t - 0.4) / 0.6, MascotTokens.celebrateHop),
+            _ => (0.0, 0.0),
+          };
+    final hop = hopAmp * bump(hopPhase);
+    final p = beat == null
+        ? base
+        : base.adjusted(
+            lids: (l) => (l * (1 - n) + MascotTokens.sighLid * sigh).clamp(0.0, l >= 0.99 && n == 0 ? 1.0 : 0.9),
+            browLift: MascotTokens.noticeBrow * n,
+            bristle: MascotTokens.noticeBristle * n + 0.3 * bump(t) * (trip > 0 ? 1 : 0),
+            droop: MascotTokens.sighDroop * sigh,
+            irregular: trip,
+            tilt: MascotTokens.stumbleTilt * math.sin(2 * math.pi * t) * trip,
+            gaze: Offset(0, 1.5 * sigh),
+          );
     // A tamaño pequeño la silueta necesita agujas más gordas y trazos más
     // gruesos, y pierde los tubérculos y el asa: es la única variante.
     final small = size.width <= MascotTokens.smallThreshold;
@@ -876,14 +1076,20 @@ class _ErizogenesPainter extends CustomPainter {
 
     if (c.shadowAlpha > 0) _paintShadow(canvas, p, c, hop, step.abs() * (p.runs ? 1 : 0));
 
-    // Toque: salta y, al despegar y al caer, se aplasta contra el suelo.
+    // Tropiezo: un vaivén de lado que se apaga. Se da cuenta: se estira un
+    // poco hacia arriba. Suspiro: se hunde desde los pies.
+    if (trip > 0) canvas.translate(MascotTokens.stumbleShift * math.sin(3 * math.pi * t) * trip, 0);
+    if (n > 0) canvas.translate(0, -MascotTokens.noticeLift * n);
+    if (sigh > 0) _scaleFromFeet(canvas, p, 1, 1 - MascotTokens.sighSink * sigh);
+
+    // Salto (toque o gesto): sube y, al despegar y al caer, se aplasta.
     if (hop > 0) {
       canvas.translate(0, -MascotTokens.hopHeight * hop);
       const edge = MascotTokens.hopSquashPhase;
-      final squash = poke < edge
-          ? (edge - poke) / edge
-          : poke > 1 - edge
-              ? (poke - (1 - edge)) / edge
+      final squash = hopPhase < edge
+          ? (edge - hopPhase) / edge
+          : hopPhase > 1 - edge
+              ? (hopPhase - (1 - edge)) / edge
               : 0.0;
       _scaleFromFeet(canvas, p, 1 + MascotTokens.hopSquashX * squash, 1 - MascotTokens.hopSquashY * squash);
     }
@@ -970,7 +1176,8 @@ class _ErizogenesPainter extends CustomPainter {
       for (var i = 0; i < n; i++) {
         final a = _rad(158 + (i + offset) / (n - 1) * 224);
         final variation = 1 + 0.17 * math.sin(i * 2.39 + offset * 7) + 0.09 * math.sin(i * 5.1 + 1.3);
-        final length = reach * share * variation * (p.droop > 0 ? 0.82 : 1);
+        // Tumbadas se ven más cortas; proporcional para que se interpole.
+        final length = reach * share * variation * (1 - 0.18 * math.min(1, p.droop / _sleepDroop));
         final cos = math.cos(a);
         var turn = sweep;
         if (p.droop > 0) turn += p.droop * cos.sign * math.min(1, cos.abs() * 3);
@@ -1202,7 +1409,7 @@ class _ErizogenesPainter extends CustomPainter {
   /// le tuercen hacia los lados.
   void _paintBeard(Canvas canvas, _PoseSpec p, _Palette c, bool small) {
     final y = p.cy + 15 - 1.5;
-    final droop = p.droop > 0 ? 0.5 : 0.0;
+    final droop = 0.5 * math.min(1, p.droop / _sleepDroop);
     final shafts = Path();
     final tips = Path();
     for (final (x, length, deg) in const [(46.6, 8.0, 20.0), (50.0, 11.0, 0.0), (53.4, 8.0, -20.0)]) {
@@ -1378,7 +1585,11 @@ class _ErizogenesPainter extends CustomPainter {
       old.look != look ||
       old.petted != petted ||
       old.weary != weary ||
-      old.figure != figure;
+      old.figure != figure ||
+      old.from != from ||
+      old.morph != morph ||
+      old.beat != beat ||
+      old.beatT != beatT;
 }
 
 /// El ánfora de figuras negras, en un lienzo de 120×160: cuello negro con
