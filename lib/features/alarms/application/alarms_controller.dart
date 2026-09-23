@@ -40,8 +40,10 @@ Future<List<(PlannedAlarm, String)>> plannedClockAlarms(Ref ref) async {
     )),
     wake: settings.alarmaDespertar,
     wakeMinutes: settings.alarmaDespertarMin,
+    // Sin `travelMinutes`: una alarma semanal no sabe si ese día fuiste a la
+    // clase anterior, así que hay «Salir» para todas. Perder un aviso por
+    // saltarte la primera clase sería peor que uno de más.
     leave: settings.alarmaSalir,
-    travelMinutes: DeparturePlanner.travelMinutesFor(settings.modoTransporte, settings.trayectoMinutos),
   );
   return [
     for (final a in alarms)

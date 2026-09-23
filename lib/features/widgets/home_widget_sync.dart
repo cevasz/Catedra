@@ -90,12 +90,13 @@ Future<void> _push(Ref ref) async {
     if (d == today.add(const Duration(days: 1))) return SWidgets.pendingTomorrow;
     return shortDay.format(d);
   }
-  // El trayecto de cada clase: desde casa si es la primera del día o si el
-  // hueco da para volver; si no, ya estás en la U y no hay trayecto.
+  // El trayecto de cada clase: sin trayecto solo si la anterior del día está
+  // marcada como asistida y el hueco no da para volver a casa (la misma
+  // regla que Hoy). Sin marca se asume que sales de casa.
   final tripOf = <int, int>{};
   final lastEndByDay = <DateTime, int>{};
   for (final c in classes) {
-    if (c.status == SessionStatus.canceladaProfe) {
+    if (c.status != SessionStatus.asistio && c.status != SessionStatus.pendiente) {
       tripOf[c.instance.id] = travel;
       continue;
     }
@@ -107,7 +108,11 @@ Future<void> _push(Ref ref) async {
       travelMinutes: travel,
     );
     tripOf[c.instance.id] = fromHome ? travel : 0;
-    lastEndByDay[day] = c.session.horaFin;
+    if (c.status == SessionStatus.asistio) {
+      lastEndByDay[day] = c.session.horaFin;
+    } else {
+      lastEndByDay.remove(day);
+    }
   }
   int leaveOf(DayClass c) => MinutesOfDay(c.session.horaInicio).minus((tripOf[c.instance.id] ?? travel) + buffer).raw;
 
@@ -129,7 +134,9 @@ Future<void> _push(Ref ref) async {
         'status': switch (c.status) {
           SessionStatus.canceladaProfe => 'cancelled',
           SessionStatus.asistio => 'attended',
-          _ => 'pending',
+          // Una falta (marcada o detectada) no se persigue, igual que en Hoy.
+          SessionStatus.falto || SessionStatus.justificada || SessionStatus.posibleFalta => 'absent',
+          SessionStatus.pendiente => 'pending',
         },
       },
   ];
@@ -156,6 +163,7 @@ Future<void> _push(Ref ref) async {
     // la de salir («si sales ya, llegas 8:07 · 7 min tarde»).
     'travel': travel,
     'buffer': buffer,
+    'tolerance': DeparturePlanner.lateToleranceMinutes,
     'strings2': {
       'tomorrow': SWidgets.tomorrow,
       'onDay': SWidgets.onDay(dia: '%s'),
@@ -199,8 +207,9 @@ Future<void> _push(Ref ref) async {
     for (final name in kHomeWidgetProviders) {
       await HomeWidget.updateWidget(androidName: name);
     }
-    // El widget cambia solo al llegar la hora de salir, al empezar y al
-    // terminar cada clase de hoy y de mañana, y a medianoche.
+    // El widget cambia solo al llegar la hora de salir, al empezar cada clase,
+    // al acabar su tolerancia (ahí pasa a la siguiente), al terminar, y a
+    // medianoche.
     final now = DateTime.now();
     final times = <DateTime>{
       DateTime(today.year, today.month, today.day + 1),
@@ -209,6 +218,7 @@ Future<void> _push(Ref ref) async {
           for (final m in [
             MinutesOfDay(c.session.horaInicio).minus(travel + buffer).raw,
             c.session.horaInicio,
+            c.session.horaInicio + DeparturePlanner.lateToleranceMinutes,
             c.session.horaFin,
           ])
             DateTime(c.instance.fecha.year, c.instance.fecha.month, c.instance.fecha.day)
@@ -224,7 +234,7 @@ Future<void> _push(Ref ref) async {
       for (final c in classes)
         if (c.instance.fecha == today)
           for (var m = MinutesOfDay(c.session.horaInicio).minus(travel + buffer).raw;
-              m <= c.session.horaInicio;
+              m <= c.session.horaInicio + DeparturePlanner.lateToleranceMinutes;
               m++)
             DateTime(today.year, today.month, today.day).add(Duration(minutes: m)),
     }.where((t) => t.isAfter(now)).toList()

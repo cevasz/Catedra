@@ -937,6 +937,21 @@ después sin falla), que ponga falla y pase a la otra». Revierte la regla de
   tiempo» en un diálogo: la sección lo avisa y abre los permisos.
 - Columna `detectarCasa` en la v5 del esquema, apagada para todos.
 
+## 46. Widgets al día con la tolerancia, y «en la U» solo si lo sabes
+
+Probado en el teléfono (2026-09-23):
+
+- **Un widget seguía diciendo «10:20 Camina ya · Cálculo Vectorial» a
+  mediodía.** `CatedraWidgetData.next()` tomaba como siguiente cualquier clase
+  que no hubiera terminado. Ahora usa la misma regla que Hoy: inicio más la
+  tolerancia (`tolerance` llega en el JSON). Las faltas llegan como `absent`
+  y no se persiguen. El widget se refresca también al acabar la tolerancia.
+- **«Ya estás en la U» estando en casa.** «Sin marcar» no es «fui»: solo
+  cuenta como en la U si la clase anterior está marcada como asistida (o la
+  detección de casa dice que saliste). Sin marca, sales de casa.
+- **Alarmas «Salir» para todas las clases**: una alarma semanal no sabe si
+  ese día fuiste a la anterior; perder un aviso es peor que uno de más.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura

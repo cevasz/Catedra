@@ -55,6 +55,8 @@ class WidgetData(
     val classes: List<WidgetClass>,
     val travel: Int,
     val buffer: Int,
+    /** Minutos que te dejan entrar tarde sin falta (DeparturePlanner.lateToleranceMinutes). */
+    val tolerance: Int,
     val quips: Map<String, List<String>>,
     val pending: List<WidgetPending>,
     val pendingTotal: Int,
@@ -76,7 +78,9 @@ class WidgetData(
     fun next(): WidgetClass? {
         val today = realToday()
         val now = nowMinutes()
-        return classes.firstOrNull { it.isLive && (it.date > today || (it.date == today && it.end > now)) }
+        // Igual que Hoy: una clase es «a la que hay que ir» hasta su inicio más
+        // la tolerancia. A una de 11:00 no se le dice «Camina ya» a mediodía.
+        return classes.firstOrNull { it.isLive && (it.date > today || (it.date == today && it.start + tolerance > now)) }
     }
 
     /** La clase que viene después de [c], el mismo día. */
@@ -191,6 +195,7 @@ class WidgetData(
                     classes = classes,
                     travel = o.optInt("travel", 15),
                     buffer = o.optInt("buffer", 5),
+                    tolerance = o.optInt("tolerance", 15),
                     quips = quips,
                     pending = pending,
                     pendingTotal = o.optInt("pendingTotal", pending.size),

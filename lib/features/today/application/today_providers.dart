@@ -131,8 +131,10 @@ bool _skipped(SessionStatus s) =>
     s == SessionStatus.justificada ||
     s == SessionStatus.posibleFalta;
 
-/// ¿Sales de casa hacia [next]? Si antes hubo una clase de hoy a la que (se
-/// supone) fuiste y el hueco no da para volver a casa, ya estás en la U.
+/// ¿Sales de casa hacia [next]? Solo se da por hecho que estás en la U si la
+/// clase anterior de hoy está marcada como asistida y el hueco no da para
+/// volver a casa. Sin marca no se supone nada: «sin marcar» no es «fui», y
+/// es mejor avisarte con el trayecto que dejarte llegar tarde.
 bool _fromHome(List<DayClass> list, DayClass? next, int travel) {
   if (next == null) return true;
   final start = MinutesOfDay(next.session.horaInicio);
@@ -141,6 +143,7 @@ bool _fromHome(List<DayClass> list, DayClass? next, int travel) {
     if (identical(c, next) || MinutesOfDay(c.session.horaInicio) >= start) break;
     if (!_skipped(c.status)) previous = c;
   }
+  if (previous?.status != SessionStatus.asistio) return true;
   return DeparturePlanner.leavesFromHome(
     previousEnd: previous == null ? null : MinutesOfDay(previous.session.horaFin),
     start: start,

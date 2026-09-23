@@ -117,9 +117,20 @@ void main() {
       expect(s.next?.instance.id, 2);
     });
 
-    test('tras una clase a la que fuiste, la siguiente cercana no pide salir de casa', () async {
+    test('sin marcar la anterior no se supone nada: se sale de casa', () async {
+      // Lo que se vio en el teléfono: «Ya estás en la U» estando en casa.
       final s = await _state(
-        [_clase(id: 1, inicio: 420, fin: 540), _clase(id: 2, inicio: 660, fin: 780)],
+        [_clase(id: 1, inicio: 660, fin: 780), _clase(id: 2, inicio: 840, fin: 960)],
+        hour: 12,
+        minute: 56,
+      );
+      expect(s.next?.instance.id, 2);
+      expect(s.plan!.fromHome, isTrue);
+    });
+
+    test('tras una clase marcada como asistida, la siguiente cercana no pide salir de casa', () async {
+      final s = await _state(
+        [_clase(id: 1, inicio: 420, fin: 540, estado: SessionStatus.asistio), _clase(id: 2, inicio: 660, fin: 780)],
         hour: 9,
         minute: 30,
       );
