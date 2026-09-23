@@ -142,3 +142,38 @@ final mascotTipsProvider = Provider<List<MascotTip>>((ref) {
   if (tips.isNotEmpty) tips.add(MascotTip(v(SMascotVoice.aphorisms), MascotPose.reposo));
   return tips;
 });
+
+/// Qué ocurrencia viene a cuento ahora. Cada una remite a la vida de
+/// Diógenes, y el contexto decide cuál: el rollo si hay una evaluación cerca,
+/// el reloj de arena si la próxima clase está a menos de media hora, la
+/// tinaja o el sol si hoy no hay clases. Si nada aprieta, el cuenco o el gallo
+/// de Platón, alternando por día.
+final mascotAnticProvider = Provider<MascotAntic>((ref) {
+  final today = ref.watch(todayProvider);
+  final state = ref.watch(todayStateProvider).valueOrNull;
+  final cards = ref.watch(subjectsOverviewProvider).valueOrNull ?? const <SubjectCard>[];
+
+  final horizon = today.add(const Duration(days: kTipLookaheadDays));
+  final examSoon = cards.any(
+    (c) => c.evaluations.any((e) {
+      final f = e.fecha;
+      if (f == null || e.nota != null) return false;
+      final d = DateTime(f.year, f.month, f.day);
+      return !d.isBefore(today) && !d.isAfter(horizon);
+    }),
+  );
+  if (examSoon) return MascotAntic.scroll;
+
+  final plan = state?.plan;
+  if (plan != null && !plan.isUrgent && plan.minutesUntilLeave <= kAnticClassSoonMinutes) {
+    return MascotAntic.hourglass;
+  }
+
+  final day = today.difference(DateTime(today.year)).inDays;
+  if (state != null && state.classes.isEmpty) return day.isEven ? MascotAntic.jar : MascotAntic.sun;
+  return day.isEven ? MascotAntic.bowl : MascotAntic.chicken;
+});
+
+/// Minutos hasta la salida por debajo de los cuales el reloj de arena viene
+/// a cuento.
+const int kAnticClassSoonMinutes = 30;

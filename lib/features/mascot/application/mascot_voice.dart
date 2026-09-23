@@ -7,6 +7,7 @@ import '../../../domain/attendance/attendance.dart';
 import '../../../l10n/strings.g.dart';
 import '../../../theme/tokens.g.dart';
 import '../mascot_view.dart';
+import 'mascot_tips.dart';
 
 /// Qué acaba de pasar en la app, para que Erizógenes lo comente.
 enum MascotReaction {
@@ -60,13 +61,16 @@ MascotReaction? reactionForStatus(SessionStatus status) => switch (status) {
 
 /// Una frase que Erizógenes está diciendo ahora mismo en la esquina.
 class MascotLine {
-  const MascotLine(this.text, this.pose, this.serial, {this.beat});
+  const MascotLine(this.text, this.pose, this.serial, {this.beat, this.antic});
 
   final String text;
   final MascotPose pose;
 
   /// El gesto que acompaña a la frase, si lo hay.
   final MascotBeat? beat;
+
+  /// La ocurrencia que acompaña a la frase, si la hay.
+  final MascotAntic? antic;
 
   /// Sube con cada frase: dos frases iguales seguidas también se animan.
   final int serial;
@@ -94,6 +98,8 @@ class VariantPicker {
 }
 
 /// Cuánto se queda una frase en la esquina antes de que el erizo se esconda.
+/// Dura más que una ocurrencia (`mascotAntic`): el erizo no se esconde a
+/// mitad de la suya.
 const Duration kMascotLineDuration = MotionDurations.mascotLine;
 
 /// La esquina de Erizógenes: lo que dice ahora, o nada.
@@ -101,32 +107,64 @@ const Duration kMascotLineDuration = MotionDurations.mascotLine;
 /// Cualquier pantalla puede pedirle que reaccione con [MascotCornerController.react];
 /// la frase se va sola a los pocos segundos.
 final mascotCornerProvider = StateNotifierProvider<MascotCornerController, MascotLine?>(
-  (ref) => MascotCornerController(),
+  (ref) => MascotCornerController(anticSource: () => ref.read(mascotAnticProvider)),
 );
 
 class MascotCornerController extends StateNotifier<MascotLine?> {
-  MascotCornerController([VariantPicker? picker])
+  /// [anticSource] elige la ocurrencia según el contexto. Sin ella (en los
+  /// tests, por ejemplo) no hay ocurrencias por silencio.
+  MascotCornerController({VariantPicker? picker, MascotAntic Function()? anticSource})
       : _picker = picker ?? VariantPicker(),
-        super(null);
+        _anticSource = anticSource,
+        super(null) {
+    _armIdle();
+  }
 
   final VariantPicker _picker;
+  final MascotAntic Function()? _anticSource;
   Timer? _hide;
+  Timer? _idle;
   int _serial = 0;
+  int _muses = 0;
+
+  /// Tras [MotionDurations.mascotAnticIdle] sin decir nada, hace una
+  /// ocurrencia por su cuenta. Cualquier frase reinicia la cuenta: nunca se
+  /// junta con otra.
+  void _armIdle() {
+    _idle?.cancel();
+    final source = _anticSource;
+    if (source == null) return;
+    _idle = Timer(MotionDurations.mascotAnticIdle, () {
+      if (state == null) perform(source());
+    });
+  }
+
+  /// Una ocurrencia con su frase. Descansa en reposo: la ocurrencia ya pone
+  /// la cara.
+  void perform(MascotAntic antic) =>
+      say(_picker.pick(antic.lines), MascotPose.reposo, antic: antic);
 
   void react(MascotReaction? reaction) {
     if (reaction != null) say(_picker.pick(reaction.lines), reaction.pose, beat: reaction.beat);
   }
 
-  /// Una frase suelta, sin dato detrás: una sentencia o una queja por el toque.
-  void muse() => say(
-        _picker.pick([...SMascotVoice.aphorisms, ...SMascotVoice.petLines]),
-        MascotPose.reposo,
-      );
+  /// Una frase suelta, sin dato detrás: una sentencia o una queja por el
+  /// toque. Una de cada [MascotTokens.anticEveryTaps] es una ocurrencia.
+  void muse() {
+    _muses++;
+    final source = _anticSource;
+    if (source != null && _muses % MascotTokens.anticEveryTaps == 0) {
+      perform(source());
+      return;
+    }
+    say(_picker.pick([...SMascotVoice.aphorisms, ...SMascotVoice.petLines]), MascotPose.reposo);
+  }
 
-  void say(String text, MascotPose pose, {MascotBeat? beat}) {
+  void say(String text, MascotPose pose, {MascotBeat? beat, MascotAntic? antic}) {
     if (text.isEmpty) return;
     _hide?.cancel();
-    state = MascotLine(text, pose, ++_serial, beat: beat);
+    _armIdle();
+    state = MascotLine(text, pose, ++_serial, beat: beat, antic: antic);
     _hide = Timer(kMascotLineDuration, dismiss);
   }
 
@@ -138,6 +176,7 @@ class MascotCornerController extends StateNotifier<MascotLine?> {
   @override
   void dispose() {
     _hide?.cancel();
+    _idle?.cancel();
     super.dispose();
   }
 }

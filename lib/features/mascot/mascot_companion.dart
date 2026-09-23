@@ -9,6 +9,7 @@ import '../../theme/motion.dart';
 import '../../theme/tokens.g.dart';
 import '../../theme/transitions.dart';
 import 'application/mascot_tips.dart';
+import 'application/mascot_voice.dart';
 import 'mascot_view.dart';
 
 /// Erizógenes con algo útil que decir.
@@ -54,8 +55,25 @@ class _MascotCompanionState extends ConsumerState<MascotCompanion> {
   String? _petLine;
   final _random = math.Random();
 
+  /// Uno de cada [MascotTokens.anticEveryTaps] toques no pasa de consejo:
+  /// hace una ocurrencia, la que venga a cuento, con su frase.
+  int _taps = 0;
+  MascotAntic? _antic;
+  String? _anticLine;
+  int _anticSerial = 0;
+  final _picker = VariantPicker();
+
   void _next(int count) => setState(() {
         _petLine = null;
+        _anticLine = null;
+        _taps++;
+        if (_taps % MascotTokens.anticEveryTaps == 0) {
+          final antic = ref.read(mascotAnticProvider);
+          _antic = antic;
+          _anticLine = _picker.pick(antic.lines);
+          _anticSerial++;
+          return;
+        }
         if (count == 0) return;
         _index = (_index + 1) % count;
       });
@@ -71,7 +89,7 @@ class _MascotCompanionState extends ConsumerState<MascotCompanion> {
 
     final i = tips.isEmpty || _index < 0 ? -1 : _index % tips.length;
     final tip = i < 0 ? null : tips[i];
-    final text = _petLine ?? tip?.text ?? widget.fallback ?? '';
+    final text = _anticLine ?? _petLine ?? tip?.text ?? widget.fallback ?? '';
     final pose = widget.hero ? widget.heroPose! : (tip?.pose ?? MascotPose.reposo);
 
     final mascot = MascotView(
@@ -80,6 +98,8 @@ class _MascotCompanionState extends ConsumerState<MascotCompanion> {
       host: widget.hero ? MascotHost.emptyDay : MascotHost.companion,
       onTap: () => _next(tips.length),
       onLongPress: _pet,
+      antic: _antic,
+      anticKey: _anticSerial,
     );
 
     final line = StateSwitcher(

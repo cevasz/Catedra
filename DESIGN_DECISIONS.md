@@ -811,6 +811,38 @@ Fases 3 y 4 de la auditoría de Erizógenes.
   del PDF entra tropezando.
 - **Reduced motion:** sin gesto. La pose y la frase ya comunican lo que pasó.
 
+## 41. Erizógenes, el viejo: más oficio y las ocurrencias de Diógenes
+
+**Pedido del usuario (2026-09-23):** «al diseño le falta cariño»; más
+Diógenes en las animaciones: que a veces guarde la lámpara y saque algo de su
+vida, con interacciones al estilo del clip de Office. Diseñado en el lienzo
+(lámina «v3 · el viejo», con animaciones) y portado 1:1.
+
+- **El personaje:** lo memorable es la cara de viejo filósofo. Cejas pobladas
+  de hueso con la punta disparada, bigote de dos alas que hace de boca
+  (sube con la sonrisa, cae al dormir), barba de tres puntas, nariz, ojeras de
+  pensar de más, ojos con dos brillos y contorno. El cuerpo tiene volumen
+  (luz arriba a la izquierda, sombra abajo a la derecha), contorno de tinta
+  como la cerámica pintada, agujas en tres tonos y pies con dedos. A tamaño
+  pequeño pierde luces, ojeras, dedos y asa.
+- **Ocurrencias (`MascotAntic`):** guarda la lámpara, saca algo, lo usa y la
+  recupera, en `mascotAntic` (3,2 s), con su frase:
+  - el **cuenco** que tiró al ver a un niño beber con las manos;
+  - el **rollo**, si hay una evaluación en los próximos 7 días;
+  - el **reloj de arena**, si la salida a clase está a menos de 30 min;
+  - el **gallo desplumado**: «¡He aquí el hombre de Platón!»;
+  - la **tinaja** donde vivía, o **tomar el sol** («Apártate, que me tapas el
+    sol»), si hoy no hay clases.
+  El contexto elige cuál (`mascotAnticProvider`); si nada aprieta, cuenco o
+  gallo, alternando por día.
+- **Cuándo, sin molestar:** en la esquina, una de cada `anticEveryTaps` (4)
+  sentencias y, tras `mascotAnticIdle` (2,5 min) sin decir nada, una por su
+  cuenta; cualquier frase reinicia esa cuenta. En el compañero de Hoy, uno de
+  cada 4 toques. Nunca corriendo. Bajo reduced-motion no se mueve: queda la
+  frase.
+- La luz de borde desaparece: el contorno de tinta y el volumen hacen su
+  trabajo en los dos temas.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura

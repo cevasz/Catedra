@@ -4,6 +4,7 @@ import 'package:catedra/domain/attendance/attendance.dart';
 import 'package:catedra/features/mascot/application/mascot_voice.dart';
 import 'package:catedra/features/mascot/mascot_view.dart';
 import 'package:catedra/l10n/strings.g.dart';
+import 'package:catedra/theme/tokens.g.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -37,6 +38,44 @@ void main() {
     }
   });
 
+  test('una de cada anticEveryTaps sentencias es una ocurrencia, con su frase', () {
+    fakeAsync((async) {
+      final c = MascotCornerController(anticSource: () => MascotAntic.chicken);
+      for (var i = 1; i < MascotTokens.anticEveryTaps; i++) {
+        c.muse();
+        expect(c.state?.antic, isNull);
+      }
+      c.muse();
+      expect(c.state?.antic, MascotAntic.chicken);
+      expect(SMascotVoice.anticChicken, contains(c.state?.text));
+      c.dispose();
+    });
+  });
+
+  test('tras mascotAnticIdle en silencio hace una por su cuenta; hablar reinicia la cuenta', () {
+    fakeAsync((async) {
+      final c = MascotCornerController(anticSource: () => MascotAntic.jar);
+      async.elapse(MotionDurations.mascotAnticIdle - MotionDurations.mascotLine);
+      c.react(MascotReaction.saved);
+      async.elapse(MotionDurations.mascotLine * 2);
+      expect(c.state, isNull, reason: 'la frase ya se fue y la cuenta volvió a empezar');
+      // La cuenta empezó al hablar: salta al cumplirse desde ahí, no desde el
+      // principio.
+      async.elapse(MotionDurations.mascotAnticIdle - MotionDurations.mascotLine * 2 + MotionDurations.fast);
+      expect(c.state?.antic, MascotAntic.jar);
+      c.dispose();
+    });
+  });
+
+  test('sin fuente de contexto no hay ocurrencias por silencio', () {
+    fakeAsync((async) {
+      final c = MascotCornerController();
+      async.elapse(MotionDurations.mascotAnticIdle * 2);
+      expect(c.state, isNull);
+      c.dispose();
+    });
+  });
+
   test('cada reacción lleva su gesto, y la esquina lo transporta', () {
     // Solo terminar una tarea se celebra; una falta suspira; cancelada, nada.
     expect(MascotReaction.taskDone.beat, MascotBeat.celebrate);
@@ -49,7 +88,7 @@ void main() {
     );
 
     fakeAsync((async) {
-      final c = MascotCornerController(VariantPicker(math.Random(1)));
+      final c = MascotCornerController(picker: VariantPicker(math.Random(1)));
       c.react(MascotReaction.taskDone);
       expect(c.state?.beat, MascotBeat.celebrate);
       c.muse();
@@ -68,7 +107,7 @@ void main() {
 
   test('la esquina dice la frase y se calla sola', () {
     fakeAsync((async) {
-      final c = MascotCornerController(VariantPicker(math.Random(1)));
+      final c = MascotCornerController(picker: VariantPicker(math.Random(1)));
       c.react(MascotReaction.taskDone);
       expect(SMascotVoice.reactTaskDone, contains(c.state!.text));
       expect(c.state!.pose, MascotPose.satisfecho);

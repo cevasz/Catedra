@@ -147,6 +147,45 @@ void main() {
     });
   }
 
+  Widget antics(MascotAntic? antic, Object? key, {bool reduced = false, MascotPose pose = MascotPose.reposo}) =>
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: MediaQuery(
+          data: MediaQueryData(disableAnimations: reduced),
+          child: Center(
+            child: MascotView(pose: pose, size: 118, host: MascotHost.companion, antic: antic, anticKey: key),
+          ),
+        ),
+      );
+
+  for (final antic in MascotAntic.values) {
+    testWidgets('la ocurrencia $antic se reproduce entera y termina', (tester) async {
+      await tester.pumpWidget(antics(null, 0));
+      await tester.pump(MotionDurations.mascotEnter);
+      await tester.pumpWidget(antics(antic, 1));
+      await tester.pump();
+      expect(state(tester).debugAntic, antic);
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(MotionDurations.mascotAntic ~/ 10);
+      }
+      await tester.pump(MotionDurations.fast);
+      expect(tester.takeException(), isNull);
+      expect(state(tester).debugAntic, isNull);
+    });
+  }
+
+  testWidgets('sin ocurrencias corriendo ni bajo reduced-motion', (tester) async {
+    await tester.pumpWidget(antics(MascotAntic.bowl, 1, pose: MascotPose.rodando));
+    await tester.pump();
+    expect(state(tester).debugAntic, isNull, reason: 'corriendo está ocupado');
+
+    await tester.pumpWidget(antics(null, 1, reduced: true));
+    await tester.pump(ReducedMotion.duration);
+    await tester.pumpWidget(antics(MascotAntic.sun, 2, reduced: true));
+    await tester.pump();
+    expect(state(tester).debugAntic, isNull);
+  });
+
   testWidgets('la misma frase con otra clave repite el gesto', (tester) async {
     await tester.pumpWidget(beating(MascotBeat.hop, 1));
     await tester.pump(MotionDurations.mascotEnter + MotionDurations.mascotHop);
