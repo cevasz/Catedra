@@ -643,7 +643,8 @@ vuelve una función que devuelve las variantes llenas.
   pasó la hora de salir: «si sales ya, llegas 8:07 · 7 min tarde», recalculado
   con el reloj real. En esa ventana «Próxima clase» se refresca cada minuto
   (home_widget encadena una alarma a la vez, así que no cuesta alarmas). El
-  trayecto sigue siendo el fijo por modo (deuda conocida).
+  trayecto sale del ajuste «Tiempo de trayecto» (§38) o, sin él, del
+  estimado por modo.
 - **Tamaños** (`RemoteViews` con mapa de tamaños en Android 12+; en versiones
   anteriores se escoge a mano al redimensionar): 2×1 una fila; 2×2 con
   llegada y Erizógenes pequeño en el pie, donde antes quedaba media tarjeta
@@ -729,6 +730,24 @@ eligió **B**. Esto sustituye las proporciones portadas de
   pista que hablaba de «consejos».
 - **Red:** `mascot_still_golden_test.dart` congela las seis poses en claro y
   oscuro más los tamaños pequeños. Es lo que se rasteriza para los widgets.
+
+## 38. El trayecto lo mide la persona
+
+**Pedido del usuario (2026-09-23):** «desde mi ubicación me demoro media
+hora»; la app calculaba con 15 min a pie. El trayecto era una tabla fija por
+modo (15 a pie, 35 bus, 20 carro) y no usaba la ubicación para nada.
+
+- **Ajustes → Tiempo de trayecto**, de 5 a 120 min. Sin tocarlo enseña el
+  estimado del modo; «Usar el estimado» lo devuelve a la tabla.
+- Columna `trayectoMinutos` (nullable) en la v4 del esquema. Nulo = estimado
+  del modo, así que nadie que ya tenía la app cambia de hora de salida sin
+  pedirlo.
+- `DeparturePlanner.travelMinutesFor` es la única regla: la usan Hoy, los
+  widgets y las alarmas del Reloj. Las alarmas ya creadas en el Reloj no se
+  mueven solas (ninguna app puede editar alarmas de otra): hay que volver a
+  crearlas desde Ajustes.
+- La ruta real con ubicación sigue pendiente (Fase 4); cuando llegue, este
+  ajuste queda como respaldo.
 
 ## Lo que sigue sin especificación visual
 

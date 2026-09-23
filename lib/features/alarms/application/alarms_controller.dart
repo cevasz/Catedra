@@ -16,8 +16,8 @@ final alarmChannelProvider = Provider<AlarmChannel>((ref) => const AlarmChannel(
 
 /// Minutos entre inicio de clase y hora de salir: trayecto + buffer, igual
 /// que Hoy y los widgets.
-int leaveOffsetOf(({TransportMode mode, int buffer}) s) =>
-    DeparturePlanner.fallbackTravelMinutes[s.mode]! + s.buffer;
+int leaveOffsetOf(({TransportMode mode, int? travel, int buffer}) s) =>
+    DeparturePlanner.travelMinutesFor(s.mode, s.travel) + s.buffer;
 
 /// Qué alarmas saldrían hoy con el horario y los ajustes actuales.
 Future<List<(PlannedAlarm, String)>> plannedClockAlarms(Ref ref) async {
@@ -28,7 +28,11 @@ Future<List<(PlannedAlarm, String)>> plannedClockAlarms(Ref ref) async {
       for (final (session, subject, _) in sessions)
         WeeklyClass(subject: subject.nombre, weekday: session.diaSemana, start: session.horaInicio),
     ],
-    leaveOffset: leaveOffsetOf((mode: settings.modoTransporte, buffer: settings.bufferMinutos)),
+    leaveOffset: leaveOffsetOf((
+      mode: settings.modoTransporte,
+      travel: settings.trayectoMinutos,
+      buffer: settings.bufferMinutos,
+    )),
     wake: settings.alarmaDespertar,
     wakeMinutes: settings.alarmaDespertarMin,
     leave: settings.alarmaSalir,

@@ -153,6 +153,9 @@ class UserSettings extends Table {
   IntColumn get bufferMinutos => integer().withDefault(const Constant(5))();
   IntColumn get modoTransporte =>
       intEnum<TransportMode>().withDefault(Constant(TransportMode.walk.index))();
+  /// Lo que la persona tarda de verdad en llegar. Nulo: se usa el estimado
+  /// del modo de transporte (`DeparturePlanner.fallbackTravelMinutes`).
+  IntColumn get trayectoMinutos => integer().nullable()();
   TextColumn get direccionCasa => text().nullable()();
   RealColumn get homeLat => real().nullable()();
   RealColumn get homeLng => real().nullable()();

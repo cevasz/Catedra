@@ -40,7 +40,7 @@ class CatedraDatabase extends _$CatedraDatabase {
   CatedraDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -75,6 +75,11 @@ class CatedraDatabase extends _$CatedraDatabase {
             await m.addColumn(s, s.alarmaSalir);
             await m.addColumn(s, s.alarmaEvaluaciones);
             await m.addColumn(s, s.avisoEvaluacionMin);
+          },
+          // v4: trayecto medido por la persona. Nulo para todos los que ya
+          // tenían la app: siguen con el estimado del modo hasta que lo pongan.
+          from3To4: (m, schema) async {
+            await m.addColumn(schema.userSettings, schema.userSettings.trayectoMinutos);
           },
         ),
         beforeOpen: (details) async {

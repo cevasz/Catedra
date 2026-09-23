@@ -31,6 +31,11 @@ class SettingsDao extends DatabaseAccessor<CatedraDatabase> with _$SettingsDaoMi
         UserSettingsCompanion(modoTransporte: Value(mode)),
       );
 
+  /// Null vuelve al estimado del modo de transporte.
+  Future<void> setTravelMinutes(int? minutos) => _write(
+        UserSettingsCompanion(trayectoMinutos: Value(minutos)),
+      );
+
   Future<void> setDefaultAbsenceLimit(int limite) => _write(
         UserSettingsCompanion(limiteFaltasPorDefecto: Value(limite)),
       );

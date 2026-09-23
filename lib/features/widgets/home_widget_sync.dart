@@ -76,7 +76,7 @@ Future<void> _push(Ref ref) async {
   if (classes == null) return;
   final settings = ref.read(settingsProvider).valueOrNull;
   final mode = settings?.modoTransporte ?? TransportMode.walk;
-  final travel = DeparturePlanner.fallbackTravelMinutes[mode]!;
+  final travel = DeparturePlanner.travelMinutesFor(mode, settings?.trayectoMinutos);
   final buffer = settings?.bufferMinutos ?? DeparturePlanner.defaultBufferMinutes;
   final today = ref.read(todayProvider);
   final pending = ref.read(pendingProvider).valueOrNull ?? const [];

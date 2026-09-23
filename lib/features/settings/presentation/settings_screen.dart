@@ -109,6 +109,41 @@ class _Loaded extends ConsumerWidget {
                 dao.setTransport(set.single);
               },
             ),
+            SizedBox(height: SpaceTokens.l),
+            // El trayecto real de la persona manda sobre el estimado del modo.
+            // Sin tocarlo, el control enseña el estimado para que se note que
+            // hay un número detrás de la hora de salida.
+            _Row(
+              title: SSettings.travel,
+              subtitle: settings.trayectoMinutos == null
+                  ? SSettings.travelEstimated(
+                      n: DeparturePlanner.fallbackTravelMinutes[settings.modoTransporte]!,
+                    )
+                  : SSettings.travelHint,
+              trailing: Text(
+                SSettings.bufferUnit(
+                  n: DeparturePlanner.travelMinutesFor(settings.modoTransporte, settings.trayectoMinutos),
+                ),
+                style: context.type(TypeTokens.titleS),
+              ),
+            ),
+            Slider(
+              value: DeparturePlanner.travelMinutesFor(settings.modoTransporte, settings.trayectoMinutos)
+                  .clamp(DeparturePlanner.minTravelMinutes, DeparturePlanner.maxTravelMinutes)
+                  .toDouble(),
+              min: DeparturePlanner.minTravelMinutes.toDouble(),
+              max: DeparturePlanner.maxTravelMinutes.toDouble(),
+              divisions: DeparturePlanner.maxTravelMinutes - DeparturePlanner.minTravelMinutes,
+              onChanged: (v) => dao.setTravelMinutes(v.round()),
+            ),
+            if (settings.trayectoMinutos != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => dao.setTravelMinutes(null),
+                  child: const Text(SSettings.travelUseEstimate),
+                ),
+              ),
           ],
         ),
         SizedBox(height: SpaceTokens.xl),

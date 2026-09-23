@@ -119,4 +119,14 @@ abstract final class DeparturePlanner {
     TransportMode.bus: 35,
     TransportMode.car: 20,
   };
+
+  /// Rango del trayecto que la persona puede fijar en Ajustes. Por debajo de
+  /// cinco minutos no hace falta una app; por encima de dos horas, tampoco.
+  static const int minTravelMinutes = 5;
+  static const int maxTravelMinutes = 120;
+
+  /// El trayecto que manda: el que la persona midió, si lo puso; si no, el
+  /// estimado del modo. Quien conoce su ruta sabe más que una tabla.
+  static int travelMinutesFor(TransportMode mode, int? custom) =>
+      custom ?? fallbackTravelMinutes[mode]!;
 }

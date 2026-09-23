@@ -93,10 +93,9 @@ final todayStateProvider = Provider<AsyncValue<TodayState>>((ref) {
           : DeparturePlanner.plan(
               classStart: MinutesOfDay(next.session.horaInicio),
               now: nowMinutes,
-              // Sin ubicación todavía (Fase 4). El respaldo por modo mantiene
-              // la pantalla útil, que es justo lo que se pide cuando el
-              // permiso de ubicación está denegado.
-              travelMinutes: DeparturePlanner.fallbackTravelMinutes[mode]!,
+              // Sin ubicación todavía (Fase 4): el trayecto que la persona
+              // puso en Ajustes o, si no lo puso, el estimado del modo.
+              travelMinutes: DeparturePlanner.travelMinutesFor(mode, settings?.trayectoMinutos),
               bufferMinutes:
                   settings?.bufferMinutos ?? DeparturePlanner.defaultBufferMinutes,
               mode: mode,

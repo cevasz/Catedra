@@ -87,6 +87,19 @@ void main() {
       expect(DeparturePlanner.fallbackTravelMinutes.length, TransportMode.values.length);
     });
 
+    test('el trayecto medido por la persona manda sobre el estimado', () {
+      expect(DeparturePlanner.travelMinutesFor(TransportMode.walk, null), 15);
+      expect(DeparturePlanner.travelMinutesFor(TransportMode.walk, 30), 30);
+      final p = DeparturePlanner.plan(
+        classStart: MinutesOfDay.of(8, 0),
+        now: MinutesOfDay.of(6, 0),
+        travelMinutes: DeparturePlanner.travelMinutesFor(TransportMode.bus, 30),
+        bufferMinutes: 5,
+        mode: TransportMode.bus,
+      );
+      expect(p.leaveAt, MinutesOfDay.of(7, 25));
+    });
+
     test('el buffer por defecto es el mismo que el de UserSettings', () {
       expect(DeparturePlanner.defaultBufferMinutes, 5);
     });

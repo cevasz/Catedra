@@ -24,12 +24,32 @@ void main() {
     verifier = SchemaVerifier(GeneratedHelper());
   });
 
-  test('el esquema en código sigue siendo idéntico al volcado de la v3', () async {
-    final connection = await verifier.startAt(3);
+  test('el esquema en código sigue siendo idéntico al volcado de la v4', () async {
+    final connection = await verifier.startAt(4);
     final db = CatedraDatabase.forTesting(connection);
     addTearDown(db.close);
 
-    await verifier.migrateAndValidate(db, 3);
+    await verifier.migrateAndValidate(db, 4);
+  });
+
+  test('v3 → v4: el trayecto nace vacío y los ajustes de antes se quedan', () async {
+    final schema = await verifier.schemaAt(3);
+    schema.rawDatabase.execute(
+      'INSERT INTO user_settings (id, buffer_minutos, modo_transporte) VALUES (1, 10, 1)',
+    );
+
+    final db = CatedraDatabase.forTesting(schema.newConnection());
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(db, 4);
+
+    final settings = await db.select(db.userSettings).getSingle();
+    expect(settings.bufferMinutos, 10);
+    expect(settings.trayectoMinutos, isNull, reason: 'sin medirlo, sigue el estimado del modo');
+
+    await db.settingsDao.setTravelMinutes(30);
+    expect((await db.settingsDao.get()).trayectoMinutos, 30);
+    await db.settingsDao.setTravelMinutes(null);
+    expect((await db.settingsDao.get()).trayectoMinutos, isNull);
   });
 
   test('v2 → v3: materias y ajustes intactos, pendientes y alarmas con sus defaults', () async {
@@ -88,7 +108,7 @@ void main() {
     // Fuerza la apertura real: sin una consulta, `onCreate` no llega a correr.
     await db.customSelect('SELECT 1').get();
 
-    expect(db.schemaVersion, 3);
+    expect(db.schemaVersion, 4);
   });
 
   test('onCreate deja la fila única de ajustes lista', () async {
