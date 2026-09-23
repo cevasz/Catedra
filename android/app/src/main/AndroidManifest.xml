@@ -1,7 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Solo la usa el importador de PDF cuando hay clave de API: el texto
-         del horario va a la API de Claude. Sin clave la app no abre red. -->
+    <!-- Red: los mosaicos del mapa (OpenStreetMap) y, solo si hay clave de
+         API, el texto del horario hacia la API de Claude. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Ubicación: solo en primer plano y solo cuando tocas «Mi ubicación» en
+         el mapa. Nunca en segundo plano. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- Los widgets se actualizan a la hora de salir y al empezar y terminar
+         cada clase; las alarmas tienen que sobrevivir a un reinicio. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Crear alarmas en el Reloj del teléfono y avisar la víspera de una evaluación. -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Cátedra"
         android:name="${applicationName}"
@@ -28,6 +38,53 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Widgets de la pantalla de inicio. Los datos los deja la app en
+             SharedPreferences (lib/features/widgets/home_widget_sync.dart). -->
+        <receiver
+            android:name=".NextClassWidgetProvider"
+            android:label="@string/widget_picker_next"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_next_class_info"/>
+        </receiver>
+        <receiver
+            android:name=".TodayWidgetProvider"
+            android:label="@string/widget_picker_today"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_today_info"/>
+        </receiver>
+        <receiver
+            android:name=".EvalReminderReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".PendingWidgetProvider"
+            android:label="@string/widget_picker_pending"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_pending_info"/>
+        </receiver>
+        <receiver
+            android:name="es.antonborri.home_widget.HomeWidgetScheduledUpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"/>
+            </intent-filter>
+        </receiver>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -40,6 +97,14 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <intent>
+            <action android:name="android.intent.action.SET_ALARM" />
+        </intent>
+        <!-- «Abrir la ruta» le pasa la dirección a la app de mapas. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

@@ -13,6 +13,7 @@ import '../../../../l10n/strings.g.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../theme/haptics.dart';
 import '../../../../theme/tokens.g.dart';
+import '../../../mascot/application/mascot_voice.dart';
 import '../../../subject_detail/presentation/subject_detail_screen.dart';
 import '../../../subjects/application/subjects_providers.dart';
 
@@ -140,6 +141,7 @@ class SubjectSheet extends ConsumerWidget {
           : 'marcarAsistencia',
     ));
     await ref.read(scheduleDaoProvider).setStatus(item.instance.id, status);
+    ref.read(mascotCornerProvider.notifier).react(reactionForStatus(status));
     if (context.mounted) Navigator.of(context).pop();
   }
 

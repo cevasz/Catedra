@@ -492,6 +492,212 @@ recordar algo que los datos ya dicen sería una migración por una bandera.
 
 ---
 
+## 27. El guardado del importador es todo o nada
+
+**Síntoma reportado:** «se demora bastante importando el horario y cuando se
+importó solo fueron 3 materias».
+
+**Causa:** `Rooms.codigo` aceptaba 20 letras. El horario real de la Santo
+Tomás trae «Lab. de Física Mecánica y Eléctrica» (35) en la tercera materia.
+Drift lanzaba `InvalidDataException`, `confirm()` no la atrapaba y el estado
+se quedaba en `ImportSaving`: la pantalla giraba para siempre con dos materias
+y media ya guardadas. La «demora» era un cuelgue.
+
+**Decisión:** el código de salón sube a 80 (validación de Dart, no cambia el
+DDL); nombre, profesor y salón se recortan a su máximo antes de guardar; el
+guardado entero va en una transacción; y si algo falla se ve A5 con
+`saveFailed` («No quedó nada a medias: prueba otra vez»). Un test guarda el
+horario real completo (7 materias, 18 clases) y otro comprueba que un fallo en
+la tercera materia no deja ninguna.
+
+De paso, la pasada con Claude (solo cuando lo determinista no encuentra nada)
+baja a `effort: low`, recibe el texto con la disposición de la página —en una
+retícula, la columna dice el día— y, mientras corre, A3 ofrece «Seguir con lo
+que encontré».
+
+## 28. Materia cancelada no es materia archivada
+
+**Desviación:** columna `cancelada` + `fecha_cancelacion` (esquema v2) en vez
+de reutilizar `archivada`.
+
+**Razón:** cancelar es un hecho académico con fecha límite propia; archivar es
+limpieza de fin de semestre. Una cancelada:
+
+- sale de Hoy, la semana, «lo próximo», el mapa y los widgets (el filtro vive
+  en `ScheduleDao._live`, una sola vez);
+- sigue en Materias, al final, bajo «Canceladas», tachada y sin color;
+- conserva notas, faltas e historial, y se reactiva con un toque.
+
+Cancelar pregunta antes (una hoja con el porqué); reactivar no, porque no
+destruye nada. Las dos dejan «Deshacer». Se llega desde el menú de la materia,
+manteniendo pulsada su tarjeta y desde el aviso de su pantalla. La pantalla de
+la materia añade la cuenta regresiva a la fecha límite: «Quedan 4 días para
+cancelarla».
+
+## 29. Erizógenes se deja tocar y dice algo útil
+
+**Desviación:** nuevo host `B1 compañero` en `mascot.allowedScreens`, a 52 px
+en la cabecera de Hoy.
+
+**Razón:** la mascota solo aparecía cuando no había nada que mirar. El pedido
+fue hacerla «más interactiva y útil sin quitarle personalidad». Útil quiere
+decir que hable de tus datos, no de sí misma; con personalidad quiere decir
+que lo haga con su voz seca de siempre:
+
+- «Sigue Cálculo a las 11:00 en 610F. Sal a las 10:40.»
+- «Física: te queda una falta. Una.»
+- «Parcial 2 de Álgebra es el jue 24. Te lo digo porque nadie más lo hará.»
+
+Tocarlo pasa al siguiente consejo; mantenerlo pulsado suelta una frase de
+caricia y se sonroja («El monóculo no se toca.»). Con cinco toques seguidos se
+marea. El dedo encima hace que te siga con la mirada. Todo degrada bajo
+«reducir movimiento» y la háptica es `tocarMascota`, ligera.
+
+Lo que no cambia: no aparece en pantallas de trabajo ni nombra nunca una
+materia perdida; en «sal ya» no se deja tocar (ahí lo único que importa es
+salir) y el compañero se esconde para no duplicar al erizo de la esquina. En
+el día vacío el erizo grande dormido también responde, sin moverse del sitio.
+
+## 30. El mapa se ubica a mano, una vez
+
+**Desviación:** la pestaña Mapa usa OpenStreetMap y no geocodifica.
+
+**Razón:** el PDF dice «Sala de Sistemas 2E», no una dirección; ningún
+geocodificador sabe dónde queda. Cada salón se ubica una sola vez —se arrastra
+el mapa bajo el pin y se confirma «Aquí queda»— y desde ahí «Iniciar ruta»
+abre la app de mapas del teléfono con el modo de transporte de Ajustes. Cátedra
+no dibuja rutas: la app de mapas ya lo hace, con tráfico.
+
+Los mosaicos se tiñen con una matriz que sale del contrato
+(`theme/map_style.dart`): en oscuro, el blanco del mapa se vuelve
+`surface.base`; en claro, `surface.card`. Sin eso el mapa parece otra app.
+
+La ubicación se pide al tocar «Mi ubicación», no al abrir la pestaña: el
+permiso se entiende cuando se pide para algo. Denegado, el mapa funciona igual.
+Solo primer plano. Sin mascota: «mapa» sigue en la lista prohibida.
+
+## 31. Widgets de inicio: RemoteViews, no Glance
+
+**Desviación:** los dos widgets son `AppWidgetProvider` clásicos, no Glance.
+
+**Razón:** Glance arrastra Compose al APK por dos vistas de texto. Los
+colores sí salen del contrato: `gen_tokens.dart` escribe
+`res/values{,-night}/catedra_tokens.xml` y los textos del selector.
+
+- **Próxima clase (2×2):** el número grande es la hora de salir, no los
+  minutos que faltan. Un widget no se redibuja cada minuto y una cuenta atrás
+  congelada miente; debajo, un `Chronometer` del sistema sí lleva «en 12:04»
+  en vivo. Urgente pinta terracota el número y el borde, nunca el fondo.
+- **Tu día (4×2):** hasta cuatro clases desde la siguiente; canceladas
+  tachadas, pasadas atenuadas, «+2 más».
+
+La app les deja una semana de clases ya resueltas y programa actualizaciones
+para la hora de salir, el inicio y el fin de cada clase de hoy y mañana: el
+widget elige solo cuál enseñar aunque no abras la app.
+
+## 32. Erizógenes en toda la app, con voz de Diógenes
+
+**Pedido del usuario (2026-09-22):** la mascota «mucho más presente: en las
+cargas, en las esquinas mientras uno hace cosas», con diálogos variados y la
+actitud de Diógenes. Esto revierte la regla del §12 («solo en las pantallas que
+`allowedScreens` autoriza»), así que el contrato cambia en vez de esquivarse:
+
+- `allowedScreens` suma `carga`, `esquina global` y `widgets`.
+- `forbiddenScreens` se queda con **materia perdida** y **calculadora
+  imposible**. Ahí la razón del §12 sigue en pie y con un cínico pesa más: una
+  cara burlona junto a una mala noticia se lee como burla.
+
+Dónde está ahora:
+
+- **Esquina global** (`MascotCorner`, en `MaterialApp.builder`, así que
+  acompaña también en detalle, formularios y hojas). En reposo solo asoma la
+  cabeza por el borde izquierdo, a la altura de la barra de navegación, para no
+  tapar contenido. Cuando pasa algo (asistir, faltar, cancelada, nota guardada,
+  tarea creada o hecha, materia guardada, alarmas creadas) sale entero con un
+  globo y a los `mascotLine` (4,2 s) se esconde. Tocarlo suelta una sentencia.
+  Con el teclado abierto se esconde del todo. Se apaga en Ajustes.
+- **Cargas** (`MascotLoader`): rueda en lugar de un spinner en Semana,
+  Materias, Ajustes, detalle, el guardado del PDF y la cabecera de carga de
+  Hoy. La frase cambia cada `mascotLoaderLine` (2,4 s): una espera larga con la
+  misma frase parece colgada.
+- **Widgets:** ver §33.
+
+La voz: `copy.mascotVoice.$attitude` la fija. Franco, austero, burlón con las
+excusas y la pompa, cariñoso a su manera; referencias a la tinaja, la lámpara,
+Alejandro y Platón. Cada consejo tiene variantes (`*Variants`) con **los mismos
+datos**: la regla del §29 («nunca inventa») se mantiene, lo que varía es la
+frase. En Hoy la variante queda fija todo el día (el provider se recalcula con
+cada tic y el texto no puede saltar solo). En la esquina y las cargas no se
+repite la última (`VariantPicker`). Al final del ciclo de consejos va una
+sentencia (`aphorisms`), que es actitud y no dato, y nunca ocupa el lugar de un
+consejo útil.
+
+El generador de textos aprendió listas con huecos: una lista con `{clase}` se
+vuelve una función que devuelve las variantes llenas.
+
+## 33. Widgets: tres tamaños, llegada estimada y pendientes
+
+- **«Sin clases hoy» mentía.** Pasadas las clases del día, el widget decía «Sin
+  clases hoy» sobre la de mañana. Ahora dice «Mañana» o «El jue».
+- **Llegada estimada.** Debajo de la clase: «llegas 6:55 · 5 min antes». Si ya
+  pasó la hora de salir: «si sales ya, llegas 8:07 · 7 min tarde», recalculado
+  con el reloj real. En esa ventana «Próxima clase» se refresca cada minuto
+  (home_widget encadena una alarma a la vez, así que no cuesta alarmas). El
+  trayecto sigue siendo el fijo por modo (deuda conocida).
+- **Tamaños** (`RemoteViews` con mapa de tamaños en Android 12+; en versiones
+  anteriores se escoge a mano al redimensionar): 2×1 una fila; 2×2 con
+  llegada y Erizógenes pequeño en el pie, donde antes quedaba media tarjeta
+  vacía; 4×2 o más con Erizógenes grande, su frase y «Después: …».
+- **Pendientes (nuevo):** evaluaciones sin nota y tareas abiertas de todas las
+  materias, por fecha. 2×2 cuatro filas, 4×2 cinco con materia, 4×4 ocho y el
+  erizo. Hoy en terracota, mañana en ámbar. Sin nada: solo el erizo.
+- **El erizo en nativo:** Flutter lo pinta una vez por arranque con
+  `MascotStill` (el pintor en su fotograma de reposo, sin la entrada animada,
+  que capturada saldría encogida) en claro y oscuro, y Kotlin escoge según el
+  tema del sistema.
+
+## 34. Pendientes por materia
+
+Tercera pestaña del detalle (tercera columna en tablet). Arriba, las
+evaluaciones sin nota que vienen (solo lectura: se editan en Notas). Abajo, las
+tareas propias: título y fecha opcional, casilla con el tachado del §20,
+mantener pulsado para borrar con «Deshacer». Tabla `Tasks` en la v3 del
+esquema. Una evaluación pasada sin nota no es un pendiente: es una nota que
+falta poner, y eso lo dice Notas.
+
+## 35. Alarmas en el Reloj, no en Alarmy
+
+El pedido era conectar con Alarmy. Comprobado en el teléfono: Alarmy **no**
+atiende `AlarmClock.ACTION_SET_ALARM` (solo el Reloj de Samsung lo hace) y su
+deep link `alarmy://editor` abre el editor pero ignora la hora. No hay forma
+documentada de programarlo desde otra app. Decisión del usuario: el Reloj del
+teléfono, automático.
+
+- **Despertar:** por día con clase, N minutos (15–180) antes de salir hacia la
+  primera. **Salir:** una por clase y hora. Las que coinciden se juntan en una
+  alarma con varios días.
+- Se crean al tocar «Crear alarmas en el Reloj», no solas: ninguna app puede
+  borrar ni editar alarmas de otra, así que crearlas sin preguntar cada vez que
+  cambia el horario llenaría el Reloj de copias. La pantalla lo dice.
+- **Evaluaciones:** el Reloj solo sabe de días de la semana, no de fechas.
+  Son notificaciones de Cátedra la víspera, a la hora elegida (20:00 por
+  defecto), reprogramadas solas cada vez que cambian las evaluaciones.
+  `setAndAllowWhileIdle`: inexacta a propósito, no necesita el permiso de
+  alarmas exactas. Tras reiniciar el teléfono se reprograman al abrir la app.
+
+## 36. Dos fallos que se veían como «sigue cargando»
+
+- **El PDF «cargaba» para siempre con todo ya guardado.** El aviso de
+  `ImportDone` llega antes de redibujar, cuando el `PopScope` todavía tiene el
+  `canPop: false` de «guardando»; `maybePop` le hacía caso y no cerraba.
+  Ahora es `pop`. Test: `import_done_pops_test.dart`, que pinta el fotograma
+  intermedio como pasa en el teléfono.
+- **Tarjetas con franja de color y esquinas redondeadas** (Hoy, revisión del
+  PDF, Mapa): Flutter no pinta `borderRadius` con lados de colores distintos;
+  en debug revienta al pintar y en release sale con esquinas cuadradas.
+  `AccentCard` pone el filete uniforme con el radio y recorta la franja por
+  dentro.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura
@@ -499,6 +705,6 @@ manual se resolvió en el §9. Las Fases 4 y 6 siguen necesitando diseño antes 
 implementarse:
 
 - Pre-marcado por geofence y la pregunta de fin de día.
-- Permiso de ubicación denegado.
+- Permiso de ubicación denegado: hoy es un aviso en la barra de abajo (§30).
 - Notificación programada y su escalado a alerta urgente.
 - Estadísticas de fin de semestre.

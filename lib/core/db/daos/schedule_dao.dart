@@ -30,6 +30,46 @@ class DayClass {
 class ScheduleDao extends DatabaseAccessor<CatedraDatabase> with _$ScheduleDaoMixin {
   ScheduleDao(super.db);
 
+  /// Solo materias vivas: ni archivadas ni canceladas. Una materia cancelada
+  /// ya no tiene clases a las que ir, así que no aparece en Hoy ni en la
+  /// semana; su historial sigue en su pantalla.
+  Expression<bool> get _live =>
+      subjects.archivada.equals(false) & subjects.cancelada.equals(false);
+
+  /// Todas las clases recurrentes de materias vivas con su salón. El mapa
+  /// las usa para saber qué salones importan.
+  Stream<List<(ClassSession, Subject, Room?)>> watchLiveSessions() {
+    final query = select(classSessions).join([
+      innerJoin(subjects, subjects.id.equalsExp(classSessions.subjectId)),
+      leftOuterJoin(rooms, rooms.id.equalsExp(classSessions.roomId)),
+    ])
+      ..where(_live)
+      ..orderBy([
+        OrderingTerm.asc(classSessions.diaSemana),
+        OrderingTerm.asc(classSessions.horaInicio),
+      ]);
+    return query.watch().map((rows) => [
+          for (final r in rows)
+            (r.readTable(classSessions), r.readTable(subjects), r.readTableOrNull(rooms)),
+        ]);
+  }
+
+  /// Todos los salones, para el mapa.
+  Stream<List<Room>> watchRooms() =>
+      (select(rooms)..orderBy([(t) => OrderingTerm.asc(t.codigo)])).watch();
+
+  /// Ubica un salón en el mapa. `null` lo desubica.
+  Future<void> setRoomLocation(int roomId, {double? lat, double? lng}) =>
+      (update(rooms)..where((t) => t.id.equals(roomId))).write(
+        RoomsCompanion(lat: Value(lat), lng: Value(lng)),
+      );
+
+  /// Indicaciones libres del salón: «Bloque 4, piso 2. Entra por el patio.»
+  Future<void> setRoomNotes(int roomId, String? notes) =>
+      (update(rooms)..where((t) => t.id.equals(roomId))).write(
+        RoomsCompanion(indicaciones: Value(notes)),
+      );
+
   /// Clases de un día concreto, ordenadas por hora de inicio.
   ///
   /// `day` se normaliza a medianoche antes de comparar: la fila guarda la fecha
@@ -42,7 +82,7 @@ class ScheduleDao extends DatabaseAccessor<CatedraDatabase> with _$ScheduleDaoMi
       innerJoin(subjects, subjects.id.equalsExp(classSessions.subjectId)),
       leftOuterJoin(rooms, rooms.id.equalsExp(classSessions.roomId)),
     ])
-      ..where(sessionInstances.fecha.equals(midnight))
+      ..where(sessionInstances.fecha.equals(midnight) & _live)
       ..orderBy([OrderingTerm.asc(classSessions.horaInicio)]);
 
     return query.watch().map(
@@ -68,7 +108,7 @@ class ScheduleDao extends DatabaseAccessor<CatedraDatabase> with _$ScheduleDaoMi
       innerJoin(subjects, subjects.id.equalsExp(classSessions.subjectId)),
       leftOuterJoin(rooms, rooms.id.equalsExp(classSessions.roomId)),
     ])
-      ..where(sessionInstances.fecha.isBetweenValues(monday, sunday))
+      ..where(sessionInstances.fecha.isBetweenValues(monday, sunday) & _live)
       ..orderBy([OrderingTerm.asc(classSessions.horaInicio)]);
 
     return query.watch().map((rows) {
@@ -86,6 +126,34 @@ class ScheduleDao extends DatabaseAccessor<CatedraDatabase> with _$ScheduleDaoMi
     });
   }
 
+  /// Clases de materias vivas entre dos días, ambos incluidos, en orden. Es
+  /// lo que se les pasa a los widgets de la pantalla de inicio: con una
+  /// semana por delante pueden elegir solos la próxima clase aunque la app no
+  /// se abra.
+  Stream<List<DayClass>> watchBetween(DateTime from, DateTime to) {
+    final a = DateTime(from.year, from.month, from.day);
+    final b = DateTime(to.year, to.month, to.day);
+    final query = select(sessionInstances).join([
+      innerJoin(classSessions, classSessions.id.equalsExp(sessionInstances.sessionId)),
+      innerJoin(subjects, subjects.id.equalsExp(classSessions.subjectId)),
+      leftOuterJoin(rooms, rooms.id.equalsExp(classSessions.roomId)),
+    ])
+      ..where(sessionInstances.fecha.isBetweenValues(a, b) & _live)
+      ..orderBy([
+        OrderingTerm.asc(sessionInstances.fecha),
+        OrderingTerm.asc(classSessions.horaInicio),
+      ]);
+    return query.watch().map((rows) => [
+          for (final r in rows)
+            DayClass(
+              instance: r.readTable(sessionInstances),
+              session: r.readTable(classSessions),
+              subject: r.readTable(subjects),
+              room: r.readTableOrNull(rooms),
+            ),
+        ]);
+  }
+
   /// La primera clase pendiente después de `day`, en cualquier semana.
   ///
   /// Es lo que el día vacío y el «Nada más» enseñan como «Lo próximo». Se
@@ -101,7 +169,7 @@ class ScheduleDao extends DatabaseAccessor<CatedraDatabase> with _$ScheduleDaoMi
     ])
       ..where(sessionInstances.fecha.isBiggerThanValue(midnight) &
           sessionInstances.estado.equalsValue(SessionStatus.pendiente) &
-          subjects.archivada.equals(false))
+          _live)
       ..orderBy([
         OrderingTerm.asc(sessionInstances.fecha),
         OrderingTerm.asc(classSessions.horaInicio),

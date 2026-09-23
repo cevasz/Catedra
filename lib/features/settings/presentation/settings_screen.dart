@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/database.dart';
 import '../../../core/providers.dart';
+import '../../../domain/alarms/alarm_planner.dart';
 import '../../../domain/attendance/attendance.dart';
 import '../../../domain/departure/departure.dart';
 import '../../../l10n/strings.g.dart';
@@ -10,6 +11,9 @@ import '../../../theme/app_theme.dart';
 import '../../../theme/haptics.dart';
 import '../../../theme/layout.dart';
 import '../../../theme/tokens.g.dart';
+import '../../alarms/application/alarms_controller.dart';
+import '../../mascot/application/mascot_voice.dart';
+import '../../mascot/mascot_loader.dart';
 
 /// Ajustes. Se guarda al tocar: no hay botón de guardar porque ningún ajuste
 /// es destructivo y todos se ven en vivo en Hoy.
@@ -26,7 +30,7 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text(SSettings.title)),
       body: ContentWidth(
         child: settings.when(
-          loading: () => const SizedBox.shrink(),
+          loading: () => const MascotLoader(),
           error: (e, _) => Center(child: Text('$e')),
           data: (s) => _Loaded(settings: s),
         ),
@@ -124,6 +128,9 @@ class _Loaded extends ConsumerWidget {
           ],
         ),
         SizedBox(height: SpaceTokens.xl),
+        const _SectionLabel(SAlarms.section),
+        _AlarmsCard(settings: settings),
+        SizedBox(height: SpaceTokens.xl),
         const _SectionLabel(SSettings.sectionAppearance),
         _Card(
           children: [
@@ -143,8 +150,128 @@ class _Loaded extends ConsumerWidget {
               },
               onSelectionChanged: (set) => dao.setThemeIndex(set.single.index),
             ),
+            SizedBox(height: SpaceTokens.l),
+            _Row(
+              title: SSettings.mascotCorner,
+              subtitle: SSettings.mascotCornerHint,
+              trailing: Switch(value: settings.mascotaEsquina, onChanged: dao.setMascotCorner),
+            ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+/// Alarmas en el Reloj del teléfono y avisos de evaluación.
+///
+/// Las del Reloj se crean al tocar el botón, no solas: el Reloj no deja que
+/// otra app borre alarmas, así que crearlas a espaldas de la persona cada vez
+/// que cambia el horario llenaría el Reloj de copias.
+class _AlarmsCard extends ConsumerStatefulWidget {
+  const _AlarmsCard({required this.settings});
+
+  final UserSetting settings;
+
+  @override
+  ConsumerState<_AlarmsCard> createState() => _AlarmsCardState();
+}
+
+class _AlarmsCardState extends ConsumerState<_AlarmsCard> {
+  bool _busy = false;
+
+  Future<void> _create() async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    final created = await ref.read(createClockAlarmsProvider)();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    final text = switch (created) {
+      null => SAlarms.failed,
+      0 => SAlarms.none,
+      final n => SAlarms.created(n: n),
+    };
+    messenger.showSnackBar(SnackBar(content: Text(text)));
+    if (created != null && created > 0) {
+      ref.read(mascotCornerProvider.notifier).react(MascotReaction.alarms);
+    }
+  }
+
+  Future<void> _toggleEvals(bool on) async {
+    await ref.read(settingsDaoProvider).setEvalAlarm(on);
+    if (on) await ref.read(alarmChannelProvider).requestNotifications();
+  }
+
+  Future<void> _pickReminderTime() async {
+    final m = widget.settings.avisoEvaluacionMin;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: m ~/ 60, minute: m % 60),
+    );
+    if (picked != null) {
+      await ref.read(settingsDaoProvider).setEvalReminderMinute(picked.hour * 60 + picked.minute);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.settings;
+    final dao = ref.read(settingsDaoProvider);
+    final b = Theme.of(context).brightness;
+
+    return _Card(
+      children: [
+        Text(SAlarms.intro, style: context.type(TypeTokens.captionS, color: ColorTokens.textSecondary.of(b))),
+        SizedBox(height: SpaceTokens.m),
+        _Row(
+          title: SAlarms.wake,
+          subtitle: SAlarms.wakeDesc(n: s.alarmaDespertarMin),
+          trailing: Switch(value: s.alarmaDespertar, onChanged: dao.setWakeAlarm),
+        ),
+        if (s.alarmaDespertar)
+          Slider(
+            value: s.alarmaDespertarMin.toDouble(),
+            min: AlarmPlanner.minWakeMinutes.toDouble(),
+            max: AlarmPlanner.maxWakeMinutes.toDouble(),
+            divisions: (AlarmPlanner.maxWakeMinutes - AlarmPlanner.minWakeMinutes) ~/ AlarmPlanner.wakeStep,
+            label: SAlarms.minutes(n: s.alarmaDespertarMin),
+            onChanged: (v) => dao.setWakeMinutes(v.round()),
+          ),
+        SizedBox(height: SpaceTokens.s),
+        _Row(
+          title: SAlarms.leave,
+          subtitle: SAlarms.leaveDesc,
+          trailing: Switch(value: s.alarmaSalir, onChanged: dao.setLeaveAlarm),
+        ),
+        SizedBox(height: SpaceTokens.m),
+        _Row(
+          title: SAlarms.evals,
+          subtitle: SAlarms.evalsDesc(hora: reminderLabel(s.avisoEvaluacionMin)),
+          trailing: Switch(value: s.alarmaEvaluaciones, onChanged: _toggleEvals),
+        ),
+        if (s.alarmaEvaluaciones)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _pickReminderTime,
+              icon: const Icon(Icons.schedule),
+              label: Text('${SAlarms.evalHourLabel}: ${reminderLabel(s.avisoEvaluacionMin)}'),
+            ),
+          ),
+        SizedBox(height: SpaceTokens.l),
+        FilledButton.icon(
+          onPressed: _busy || !(s.alarmaDespertar || s.alarmaSalir) ? null : _create,
+          icon: const Icon(Icons.alarm_add),
+          label: const Text(SAlarms.create),
+        ),
+        SizedBox(height: SpaceTokens.s),
+        OutlinedButton.icon(
+          onPressed: ref.read(alarmChannelProvider).showAlarms,
+          icon: const Icon(Icons.alarm),
+          label: const Text(SAlarms.openClock),
+        ),
+        SizedBox(height: SpaceTokens.s),
+        Text(SAlarms.cantDelete, style: context.type(TypeTokens.captionS, color: ColorTokens.textTertiary.of(b))),
       ],
     );
   }

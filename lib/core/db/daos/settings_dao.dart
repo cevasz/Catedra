@@ -41,6 +41,21 @@ class SettingsDao extends DatabaseAccessor<CatedraDatabase> with _$SettingsDaoMi
         UserSettingsCompanion(tema: Value(index)),
       );
 
+  Future<void> setMascotCorner(bool on) => _write(UserSettingsCompanion(mascotaEsquina: Value(on)));
+
+  Future<void> setWakeAlarm(bool on) => _write(UserSettingsCompanion(alarmaDespertar: Value(on)));
+
+  Future<void> setWakeMinutes(int minutos) =>
+      _write(UserSettingsCompanion(alarmaDespertarMin: Value(minutos)));
+
+  Future<void> setLeaveAlarm(bool on) => _write(UserSettingsCompanion(alarmaSalir: Value(on)));
+
+  Future<void> setEvalAlarm(bool on) => _write(UserSettingsCompanion(alarmaEvaluaciones: Value(on)));
+
+  /// Minutos desde medianoche del aviso de la víspera.
+  Future<void> setEvalReminderMinute(int minuto) =>
+      _write(UserSettingsCompanion(avisoEvaluacionMin: Value(minuto)));
+
   Future<void> _write(UserSettingsCompanion data) =>
       (update(userSettings)..where((t) => t.id.equals(1))).write(data);
 }

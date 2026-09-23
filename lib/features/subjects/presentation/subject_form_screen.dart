@@ -11,6 +11,7 @@ import '../../../theme/app_theme.dart';
 import '../../../theme/haptics.dart';
 import '../../../theme/layout.dart';
 import '../../../theme/tokens.g.dart';
+import '../../mascot/application/mascot_voice.dart';
 import '../../subject_detail/application/subject_detail_providers.dart';
 import 'widgets/session_form_sheet.dart';
 import 'widgets/subject_color_picker.dart';
@@ -128,7 +129,10 @@ class _SubjectFormScreenState extends ConsumerState<SubjectFormScreen> {
     final id = await _persist();
     if (!mounted) return;
     setState(() => _saving = false);
-    if (id != null) Navigator.of(context).pop();
+    if (id != null) {
+      ref.read(mascotCornerProvider.notifier).react(MascotReaction.saved);
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _addSession() async {

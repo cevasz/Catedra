@@ -208,19 +208,13 @@ class _GapRow extends StatelessWidget {
         ),
         SizedBox(width: LayoutTokens.timelineRowGap),
         Text(
-          SToday.gap(d: _duration(gap)),
+          SToday.gap(d: formatGapDuration(gap)),
           style: context.type(TypeTokens.captionS, color: ColorTokens.textTertiary.of(b)),
         ),
       ],
     );
   }
 
-  /// «45 min», «1 h», «1 h 30». Sin ceros de relleno: es prosa, no un reloj.
-  static String _duration(DayGap gap) {
-    if (gap.hours == 0) return '${gap.minutes} ${SToday.countdownUnit}';
-    if (gap.remainderMinutes == 0) return '${gap.hours} h';
-    return '${gap.hours} h ${gap.remainderMinutes}';
-  }
 }
 
 /// El título de una clase cancelada va tachado, no oculto ni gris a secas.
@@ -247,4 +241,12 @@ class _Title extends StatelessWidget {
       ),
     );
   }
+}
+
+/// «45 min», «1 h», «1 h 30». Sin ceros de relleno: es prosa, no un reloj.
+/// La usan la timeline y los consejos de Erizógenes.
+String formatGapDuration(DayGap gap) {
+  if (gap.hours == 0) return '${gap.minutes} ${SToday.countdownUnit}';
+  if (gap.remainderMinutes == 0) return '${gap.hours} h';
+  return '${gap.hours} h ${gap.remainderMinutes}';
 }

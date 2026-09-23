@@ -68,7 +68,7 @@ class SubjectDetail {
 const int kDefaultSemesterWeeks = 16;
 
 @DriftAccessor(
-  tables: [Semesters, Subjects, ClassSessions, SessionInstances, Rooms, Evaluations],
+  tables: [Semesters, Subjects, ClassSessions, SessionInstances, Rooms, Evaluations, Tasks],
 )
 class SubjectsDao extends DatabaseAccessor<CatedraDatabase> with _$SubjectsDaoMixin {
   SubjectsDao(super.db);
@@ -106,7 +106,11 @@ class SubjectsDao extends DatabaseAccessor<CatedraDatabase> with _$SubjectsDaoMi
   Stream<List<SubjectOverview>> watchOverview({bool includeArchived = false}) {
     final subjectsQuery = select(subjects)
       ..where((t) => includeArchived ? const Constant(true) : t.archivada.equals(false))
-      ..orderBy([(t) => OrderingTerm.asc(t.nombre)]);
+      // Las canceladas van al final: siguen ahí, pero ya no son lo primero.
+      ..orderBy([
+        (t) => OrderingTerm.asc(t.cancelada),
+        (t) => OrderingTerm.asc(t.nombre),
+      ]);
 
     final statusQuery = select(sessionInstances).join([
       innerJoin(classSessions, classSessions.id.equalsExp(sessionInstances.sessionId)),
@@ -250,6 +254,20 @@ class SubjectsDao extends DatabaseAccessor<CatedraDatabase> with _$SubjectsDaoMi
     );
   }
 
+  /// Cancela la materia (o la reactiva con `cancelled: false`).
+  ///
+  /// No borra nada: las sesiones ya marcadas son historia. Las pendientes se
+  /// quedan como están y solo dejan de verse, porque Hoy y la semana filtran
+  /// por materia viva; si la cancelación se deshace, vuelven intactas.
+  Future<void> setCancelled(int id, {required bool cancelled, DateTime? at}) {
+    return (update(subjects)..where((t) => t.id.equals(id))).write(
+      SubjectsCompanion(
+        cancelada: Value(cancelled),
+        fechaCancelacion: Value(cancelled ? (at ?? DateTime.now()) : null),
+      ),
+    );
+  }
+
   /// Borra la materia y todo lo que cuelga de ella.
   ///
   /// El orden importa: las claves foráneas están activas, así que las hojas se
@@ -266,6 +284,7 @@ class SubjectsDao extends DatabaseAccessor<CatedraDatabase> with _$SubjectsDaoMi
         await (delete(sessionInstances)..where((t) => t.sessionId.isIn(sessionIds))).go();
       }
       await (delete(evaluations)..where((t) => t.subjectId.equals(id))).go();
+      await (delete(tasks)..where((t) => t.subjectId.equals(id))).go();
       await (delete(classSessions)..where((t) => t.subjectId.equals(id))).go();
       await (delete(subjects)..where((t) => t.id.equals(id))).go();
     });

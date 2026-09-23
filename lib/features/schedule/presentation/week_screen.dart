@@ -14,6 +14,7 @@ import '../../../theme/app_theme.dart';
 import '../../../theme/motion.dart';
 import '../../../theme/strike_through.dart';
 import '../../../theme/tokens.g.dart';
+import '../../mascot/mascot_loader.dart';
 import '../application/week_providers.dart';
 import 'widgets/subject_sheet.dart';
 
@@ -34,7 +35,7 @@ class WeekScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         child: week.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const MascotLoader(),
           error: (e, _) => Center(child: Text('$e')),
           data: (byDay) => LayoutBuilder(builder: (context, constraints) {
             final total = byDay.values.fold<int>(0, (n, l) => n + l.length);

@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../domain/import/schedule_parser.dart';
 import '../../../l10n/strings.g.dart';
+import '../../../theme/accent_card.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/cascade.dart';
 import '../../../theme/layout.dart';
 import '../../../theme/motion.dart';
 import '../../../theme/tokens.g.dart';
 import '../../../theme/transitions.dart';
+import '../../mascot/mascot_loader.dart';
 import '../../mascot/mascot_view.dart';
 import '../../subjects/presentation/subjects_screen.dart';
 import '../application/import_controller.dart';
@@ -29,8 +31,13 @@ class ImportPdfScreen extends ConsumerWidget {
 
     // Guardado: se vuelve a la pantalla anterior. Las materias ya están en la
     // base y la lista las enseña sola.
+    //
+    // `pop`, no `maybePop`: este aviso llega antes de redibujar, cuando el
+    // `PopScope` todavía tiene el `canPop: false` de «guardando». `maybePop` le
+    // hacía caso, no cerraba, y la pantalla se quedaba girando con todo ya
+    // guardado. Siempre se abre con `openImportPdf`, así que hay a dónde volver.
     ref.listen(importControllerProvider, (_, next) {
-      if (next is ImportDone) Navigator.of(context).maybePop();
+      if (next is ImportDone) Navigator.of(context).pop();
     });
 
     final title = switch (state) {
@@ -52,7 +59,7 @@ class ImportPdfScreen extends ConsumerWidget {
                 ImportExtracting(:final fileName) => _ParsingView(fileName: fileName),
                 ImportParsing() => _ParsingView(fileName: state.fileName, parsing: state),
                 ImportReview() => _ReviewView(review: state),
-                ImportSaving() || ImportDone() => const Center(child: CircularProgressIndicator()),
+                ImportSaving() || ImportDone() => const MascotLoader(),
                 ImportFailed(:final reason) => _ErrorView(reason: reason),
               },
             ),
@@ -180,7 +187,10 @@ class _ParsingView extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(SPdfParsing.mascotLine, style: context.type(TypeTokens.titleM)),
+                        RotatingLine(
+                          lines: SMascotVoice.parsingVariants,
+                          style: context.type(TypeTokens.titleM),
+                        ),
                         SizedBox(height: SpaceTokens.xs),
                         Text(
                           progress,
@@ -220,9 +230,26 @@ class _ParsingView extends ConsumerWidget {
           top: false,
           child: Padding(
             padding: EdgeInsets.all(SpaceTokens.screenMargin),
-            child: OutlinedButton(
-              onPressed: ref.read(importControllerProvider.notifier).cancel,
-              child: const Text(SPdfParsing.cancel),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: ref.read(importControllerProvider.notifier).cancel,
+                    child: const Text(SPdfParsing.cancel),
+                  ),
+                ),
+                // Mientras Claude ordena, lo encontrado ya se puede revisar:
+                // nadie tiene que quedarse mirando una barra indeterminada.
+                if (p != null && p.refining) ...[
+                  SizedBox(width: SpaceTokens.m),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: ref.read(importControllerProvider.notifier).skipRefining,
+                      child: const Text(SPdfParsing.skipRefine),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -361,18 +388,9 @@ class _ClassCard extends ConsumerWidget {
     final accent = SubjectPalette.at(index);
     final attention = ColorTokens.accentAttention.of(b);
 
-    return Container(
-      padding: EdgeInsets.all(SpaceTokens.cardPadding),
-      decoration: BoxDecoration(
-        color: ColorTokens.surfaceCard.of(b),
-        borderRadius: BorderRadius.circular(RadiusTokens.card),
-        border: Border(
-          left: BorderSide(color: accent, width: BorderTokens.subjectAccent),
-          top: BorderSide(color: ColorTokens.surfaceBorder.of(b), width: BorderTokens.hairline),
-          right: BorderSide(color: ColorTokens.surfaceBorder.of(b), width: BorderTokens.hairline),
-          bottom: BorderSide(color: ColorTokens.surfaceBorder.of(b), width: BorderTokens.hairline),
-        ),
-      ),
+    return AccentCard(
+      accent: accent,
+      color: ColorTokens.surfaceCard.of(b),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -587,6 +605,7 @@ class _ErrorView extends ConsumerWidget {
       ImportFailure.noText => SPdfError.body,
       ImportFailure.unreadable => SPdfError.bodyUnreadable,
       ImportFailure.nothingFound => SPdfError.bodyNothingFound,
+      ImportFailure.saveFailed => SPdfError.bodySaveFailed,
     };
 
     return ListView(

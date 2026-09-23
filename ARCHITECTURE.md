@@ -11,7 +11,8 @@ design/tokens.json
         └── dart run tool/gen_tokens.dart
                 ├── lib/theme/tokens.g.dart                    (necesita Flutter)
                 ├── lib/domain/attendance/absence_state.g.dart (Dart puro)
-                └── lib/l10n/strings.g.dart                    (microcopy del prototipo)
+                ├── lib/l10n/strings.g.dart                    (microcopy del prototipo)
+                └── android/app/src/main/res/values{,-night}/  (colores y textos de los widgets nativos)
 ```
 
 **Ningún color, tamaño de fuente, radio, espaciado ni duración hardcodeado dentro
@@ -153,6 +154,28 @@ marcar una falta no movería el contador hasta recargar. `combineLatest4`
 (`lib/core/async`) combina los cuatro streams de Drift en uno. Está ahí y no en
 una feature porque las dos pantallas lo usan y porque el proyecto no trae rxdart.
 
+## Mapa
+
+`features/map`: `mapRoomsProvider` agrupa las clases vivas por salón,
+`nextRoomProvider` resuelve la próxima clase (hoy con plan de salida, o la
+del siguiente día) y `locationProvider` envuelve a geolocator sin pedir
+permiso hasta que se toca «Mi ubicación». La ruta la abre la app de mapas del
+teléfono (`url_launcher`). Los mosaicos se tiñen en `theme/map_style.dart`.
+
+## Widgets de inicio
+
+`features/widgets/home_widget_sync.dart` escucha las clases de los próximos 8
+días y los ajustes, y deja un JSON en SharedPreferences (`home_widget`). Los
+providers Kotlin (`NextClassWidgetProvider`, `TodayWidgetProvider`) solo eligen
+qué enseñar según la hora; no calculan nada del dominio. Las actualizaciones se
+programan para la hora de salir y el inicio y fin de cada clase.
+
+## Materias vivas
+
+Una materia cancelada o archivada no genera clases a la vista. El filtro vive
+una sola vez en `ScheduleDao._live` y lo usan Hoy, la semana, «lo próximo»,
+el mapa y los widgets.
+
 ## Erizógenes
 
 Vive en `lib/features/mascot` y se consume solo vía
@@ -161,10 +184,19 @@ si no sabes en qué pantalla estás, no deberías estar poniendo la mascota. En
 debug, un `host` fuera de la lista permitida revienta con un assert.
 
 Las poses son un enum generado, nunca strings. El parpadeo lo maneja el propio
-módulo con un `Timer` interno.
+módulo con un `Timer` interno. El tacto también (salto, mareo, caricia,
+mirada); quien lo pone solo recibe `onTap`/`onLongPress`. Lo que dice sale de
+`mascotTipsProvider`, que lee datos y nunca inventa, y lo enseña
+`MascotCompanion`.
 
 La regla no es «solo en estados vacíos»: es **solo en las pantallas que
-`mascot.allowedScreens` autoriza**, que hoy son seis. Cuatro de ellas no están
+`mascot.allowedScreens` autoriza**, que desde el §32 incluyen la esquina global
+(`MascotCorner`), las cargas (`MascotLoader`) y los widgets (`MascotStill`
+pintado a imagen). Lo único prohibido es junto a una materia perdida o una
+calculadora imposible. Las reacciones a lo que haces pasan por
+`mascotCornerProvider.react(...)`.
+
+Antes eran ocho pantallas (incluido el compañero de Hoy, §29). Cuatro de ellas no están
 vacías —splash, parseo de PDF, error de PDF y la esquina de «sal ya»— y están
 ahí porque son los momentos en los que no hay contenido que mirar: se espera,
 falla, o lo único que importa es salir. Ver `DESIGN_DECISIONS.md` §12.
@@ -179,6 +211,6 @@ falla, o lo único que importa es salir. Ver `DESIGN_DECISIONS.md` §12.
 | 2b | Ajustes, cancelada con Deshacer, huecos, navegación por semanas, stats en el sheet | Hecho |
 | 2c | Tablet (riel, dos paneles, maestro-detalle), transiciones, micro-movimientos de la mascota | Hecho |
 | 3 | Bienvenida e importar PDF (heurística + Claude), revisión y guardado | Hecho |
-| 4 | Ubicación y alertas | Sin diseño |
-| 5 | Widgets de Glance | Tokens listos, Kotlin pendiente |
+| 4 | Mapa, ubicar salones, ruta, ubicación | Hecho; alertas y geofence sin diseño |
+| 5 | Widgets de inicio (RemoteViews) | 2×2 y 4×2 hechos; 4×4 pendiente |
 | 6 | Sync con Supabase y pulido | Sin diseño |

@@ -10,13 +10,17 @@ import '../../../core/time/minutes_of_day.dart';
 import '../../../domain/attendance/attendance.dart';
 import '../../../domain/departure/departure.dart';
 import '../../../l10n/strings.g.dart';
+import '../../../theme/accent_card.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/haptics.dart';
 import '../../../theme/layout.dart';
 import '../../../theme/micro_animations.dart';
 import '../../../theme/motion.dart';
-import '../../../theme/transitions.dart';
 import '../../../theme/tokens.g.dart';
+import '../../../theme/transitions.dart';
+import '../../mascot/application/mascot_voice.dart';
+import '../../mascot/mascot_companion.dart';
+import '../../mascot/mascot_loader.dart';
 import '../../mascot/mascot_view.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../shell/presentation/app_shell.dart';
@@ -50,18 +54,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(height: SpaceTokens.l),
-                // Skeleton del header
-                ShimmerLoading(
-                  width: 180,
-                  height: 20,
-                  borderRadius: RadiusTokens.control,
-                ),
-                SizedBox(height: SpaceTokens.xs),
-                ShimmerLoading(
-                  width: 140,
-                  height: 14,
-                  borderRadius: RadiusTokens.control,
-                ),
+                // En lugar de la cabecera, Erizógenes rodando: la espera tiene cara.
+                const MascotLoader(inline: true),
                 SizedBox(height: SpaceTokens.xl),
                 // Skeleton de la card: imita el anillo (104×104) + texto a la derecha.
                 Container(
@@ -119,6 +113,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             _syncUrgentHaptic(s.isUrgent);
             final header = _Header(day: today);
             final cards = _CardStack(state: s);
+            // El compañero no compite con la card de «sal ya», que ya trae su
+            // propio erizo, ni con el día vacío, donde el erizo es el héroe.
+            final companion = s.isEmpty || s.isUrgent
+                ? null
+                : Padding(
+                    padding: EdgeInsets.only(top: SpaceTokens.l),
+                    child: const MascotCompanion.compact(),
+                  );
 
             // En tablet, las cards a la izquierda y el día a la derecha: las
             // dos cosas que se consultan caben sin scroll y sin competir.
@@ -134,6 +136,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                         children: [
                           SizedBox(height: SpaceTokens.l),
                           header,
+                          if (companion != null) companion,
                           SizedBox(height: SpaceTokens.xl),
                           cards,
                           SizedBox(height: SpaceTokens.xxl),
@@ -169,6 +172,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 children: [
                   SizedBox(height: SpaceTokens.l),
                   header,
+                  if (companion != null) companion,
                   SizedBox(height: SpaceTokens.xl),
                   cards,
                   if (!s.isEmpty) ...[
@@ -308,21 +312,10 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final b = Theme.of(context).brightness;
-    final hair = BorderSide(color: ColorTokens.surfaceBorder.of(b), width: BorderTokens.hairline);
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(SpaceTokens.cardPadding),
-      decoration: BoxDecoration(
-        color: ColorTokens.surfaceCard.of(b),
-        borderRadius: BorderRadius.circular(RadiusTokens.card),
-        border: Border(
-          left: BorderSide(color: accent, width: BorderTokens.subjectAccent),
-          top: hair,
-          right: hair,
-          bottom: hair,
-        ),
-        boxShadow: ElevationTokens.card(b),
-      ),
+    return AccentCard(
+      accent: accent,
+      color: ColorTokens.surfaceCard.of(b),
+      shadow: ElevationTokens.card(b),
       child: child,
     );
   }
@@ -387,6 +380,8 @@ class _NextClassCard extends ConsumerWidget {
                         pose: MascotPose.rodando,
                         size: MascotTokens.sizeUrgentCorner,
                         host: MascotHost.urgentCorner,
+                        // Aquí lo único que importa es salir: no se juega.
+                        interactive: false,
                       ),
                     ),
                 ],
@@ -467,6 +462,7 @@ class _NextClassCard extends ConsumerWidget {
       status == SessionStatus.canceladaProfe ? 'marcarCancelacion' : 'marcarAsistencia',
     ));
     await ref.read(scheduleDaoProvider).setStatus(item.instance.id, status);
+    ref.read(mascotCornerProvider.notifier).react(reactionForStatus(status));
   }
 
   static String _roomLine(String? code, int startMinutes) {
@@ -604,39 +600,28 @@ class _EmptyDay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final b = Theme.of(context).brightness;
     final upcoming = ref.watch(nextAfterTodayProvider).valueOrNull;
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: SpaceTokens.xxxl),
       child: Column(
         children: [
-          const MascotView(
-            pose: MascotPose.dormido,
-            size: MascotTokens.sizeEmptyDay,
-            host: MascotHost.emptyDay,
-          ),
-          SizedBox(height: SpaceTokens.xl),
-          // TweenAnimationBuilder: el headline entra con scale 0.95→1.0
-          // complementando el fade que ya da CascadeIn al padre. Bajo
-          // reduced-motion solo hay fade (guard resuelve la escala a 1.0).
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0.0, end: 1.0),
-            duration: MotionGuard.of(context).duration(MotionDurations.base),
-            curve: MotionGuard.of(context).curve(MotionCurves.easeOutCubic),
-            builder: (context, t, child) => Transform.scale(
-              scale: MotionGuard.of(context).reduced ? 1.0 : (0.95 + 0.05 * t),
-              child: child,
-            ),
-            child: Text(SEmptyDay.headline, style: context.type(TypeTokens.titleM)),
-          ),
-          SizedBox(height: SpaceTokens.s),
-          Text(
-            SEmptyDay.mascotLine,
-            textAlign: TextAlign.center,
-            style: context.type(
-              TypeTokens.bodyL,
-              color: ColorTokens.textSecondary.of(b),
+          // Erizógenes duerme, pero si lo tocas se despierta lo justo para
+          // decir algo útil: la próxima evaluación, una materia en riesgo.
+          MascotCompanion.hero(
+            fallback: SEmptyDay.mascotLine,
+            heroPose: MascotPose.dormido,
+            // El headline entra con scale 0.95→1.0 complementando el fade del
+            // padre. Bajo reduced-motion solo hay fade.
+            heroTitle: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: MotionGuard.of(context).duration(MotionDurations.base),
+              curve: MotionGuard.of(context).curve(MotionCurves.easeOutCubic),
+              builder: (context, t, child) => Transform.scale(
+                scale: MotionGuard.of(context).reduced ? 1.0 : (0.95 + 0.05 * t),
+                child: child,
+              ),
+              child: Text(SEmptyDay.headline, style: context.type(TypeTokens.titleM)),
             ),
           ),
           if (upcoming != null) ...[

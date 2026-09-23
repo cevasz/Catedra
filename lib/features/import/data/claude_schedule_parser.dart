@@ -31,7 +31,7 @@ class ClaudeScheduleParser {
 
   static const String model = 'claude-opus-5';
   static final Uri _endpoint = Uri.parse('https://api.anthropic.com/v1/messages');
-  static const Duration _timeout = Duration(seconds: 90);
+  static const Duration _timeout = Duration(seconds: 45);
 
   final HttpClient _client;
 
@@ -43,10 +43,11 @@ Reglas:
 - Una entrada por materia; si la misma materia aparece varias veces, une sus sesiones.
 - Días en ISO 8601: 1 lunes, 2 martes, 3 miércoles, 4 jueves, 5 viernes, 6 sábado, 7 domingo.
 - Horas en formato HH:MM de 24 horas. «1-3 pm» es 13:00–15:00; «7-9» sin marcador es 07:00–09:00.
-- El salón es el código tal como aparece («604», «12-201», «B-305»), sin la palabra «salón».
+- El salón es el código tal como aparece («604», «12-201», «Sala de Sistemas 2E»), sin la palabra «salón» ni el nombre de la sede. Si cambia según el día, ponlo en cada sesión.
+- El texto conserva la disposición del PDF: en una retícula, la columna de cada celda dice el día.
 - El profesor solo si el texto lo nombra; no lo deduzcas.
 - No inventes. Si un dato no está, deja null. Si una materia te deja dudando (nombre incompleto, día ambiguo, hora rara), marca dudoso en true.
-- Ignora encabezados, pies de página, códigos de asignatura y créditos.''';
+- Ignora encabezados, pies de página y rangos de fechas administrativos. El código de asignatura y los créditos sí, si aparecen.''';
 
   static const Map<String, Object> _schema = {
     'type': 'object',
@@ -63,6 +64,12 @@ Reglas:
             'salon': {
               'type': ['string', 'null'],
             },
+            'codigo': {
+              'type': ['string', 'null'],
+            },
+            'creditos': {
+              'type': ['integer', 'null'],
+            },
             'dudoso': {'type': 'boolean'},
             'sesiones': {
               'type': 'array',
@@ -72,13 +79,16 @@ Reglas:
                   'dia': {'type': 'integer', 'minimum': 1, 'maximum': 7},
                   'inicio': {'type': 'string'},
                   'fin': {'type': 'string'},
+                  'salon': {
+                    'type': ['string', 'null'],
+                  },
                 },
-                'required': ['dia', 'inicio', 'fin'],
+                'required': ['dia', 'inicio', 'fin', 'salon'],
                 'additionalProperties': false,
               },
             },
           },
-          'required': ['nombre', 'profesor', 'salon', 'dudoso', 'sesiones'],
+          'required': ['nombre', 'profesor', 'salon', 'codigo', 'creditos', 'dudoso', 'sesiones'],
           'additionalProperties': false,
         },
       },
@@ -101,7 +111,9 @@ Reglas:
         {'role': 'user', 'content': text},
       ],
       'output_config': {
-        'effort': 'medium',
+        // Leer un horario es extracción, no razonamiento largo: con `low` la
+        // respuesta llega en segundos y no en un minuto, y la calidad aguanta.
+        'effort': 'low',
         'format': {'type': 'json_schema', 'schema': _schema},
       },
     });
@@ -173,13 +185,20 @@ Reglas:
         final dia = m['dia'] as int? ?? 0;
         if (inicio == null || fin == null) continue;
         if (fin <= inicio) badRange = true;
-        sessions.add(ParsedSession(diaSemana: dia, inicio: inicio, fin: fin));
+        sessions.add(ParsedSession(
+          diaSemana: dia,
+          inicio: inicio,
+          fin: fin,
+          salon: _nullable(m['salon']),
+        ));
       }
       final nombre = (c['nombre'] as String? ?? '').trim();
       out.add(ParsedClass(
         nombre: nombre,
         profesor: _nullable(c['profesor']),
         salon: _nullable(c['salon']),
+        codigo: _nullable(c['codigo']),
+        creditos: c['creditos'] is int ? c['creditos'] as int : null,
         sessions: sessions,
         doubts: {
           if (nombre.isEmpty) ParseDoubt.missingName,

@@ -6,6 +6,7 @@ import '../../../l10n/strings.g.dart';
 import '../../../theme/layout.dart';
 import '../../../theme/motion.dart';
 import '../../../theme/tokens.g.dart';
+import '../../map/presentation/map_screen.dart';
 import '../../schedule/presentation/week_screen.dart';
 import '../../subjects/presentation/subjects_screen.dart';
 import '../../today/presentation/today_screen.dart';
@@ -32,7 +33,7 @@ class AppShell extends ConsumerWidget {
     TodayScreen(),
     WeekScreen(),
     SubjectsScreen(),
-    _Placeholder(label: STabs.map),
+    MapScreen(),
   ];
 
   static const _icons = <IconData>[
@@ -40,6 +41,15 @@ class AppShell extends ConsumerWidget {
     Icons.calendar_today_outlined,
     Icons.menu_book_outlined,
     Icons.place_outlined,
+  ];
+
+  /// Relleno cuando la pestaña está activa: la forma dice dónde estás aunque
+  /// el color no se distinga.
+  static const _selectedIcons = <IconData>[
+    Icons.schedule,
+    Icons.calendar_today,
+    Icons.menu_book,
+    Icons.place,
   ];
 
   static const _labels = <String>[STabs.today, STabs.week, STabs.subjects, STabs.map];
@@ -64,6 +74,7 @@ class AppShell extends ConsumerWidget {
                 for (var i = 0; i < _screens.length; i++)
                   NavigationRailDestination(
                     icon: Icon(_icons[i]),
+                    selectedIcon: Icon(_selectedIcons[i]),
                     label: Text(_labels[i]),
                     padding: EdgeInsets.symmetric(vertical: SpaceTokens.xs),
                   ),
@@ -85,7 +96,7 @@ class AppShell extends ConsumerWidget {
           for (var i = 0; i < _screens.length; i++)
             NavigationDestination(
               icon: _NavBounceIcon(
-                icon: _icons[i],
+                icon: i == index ? _selectedIcons[i] : _icons[i],
                 isSelected: i == index,
               ),
               label: _labels[i],
@@ -112,16 +123,4 @@ class _NavBounceIcon extends StatelessWidget {
       child: Icon(icon),
     );
   }
-}
-
-/// El mapa es de la Fase 4 y todavía no tiene diseño. Se deja explícito en
-/// vez de una pestaña muerta.
-class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Text(label, style: Theme.of(context).textTheme.titleMedium),
-      );
 }

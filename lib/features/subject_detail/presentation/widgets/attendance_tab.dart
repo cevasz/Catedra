@@ -13,6 +13,7 @@ import '../../../../theme/haptics.dart';
 import '../../../../theme/motion.dart';
 import '../../../../theme/strike_through.dart';
 import '../../../../theme/tokens.g.dart';
+import '../../../mascot/application/mascot_voice.dart';
 import '../../application/subject_detail_providers.dart';
 import 'absence_ring.dart';
 import 'check_mark.dart';
@@ -148,6 +149,7 @@ class AttendanceTab extends ConsumerWidget {
           : 'marcarAsistencia',
     );
     await dao.setStatus(instance.id, status);
+    ref.read(mascotCornerProvider.notifier).react(reactionForStatus(status));
   }
 }
 

@@ -38,6 +38,7 @@ DayClass _clase({
         colorIndex: 0,
         limiteFaltas: 6,
         archivada: false,
+        cancelada: false,
       ),
     );
 
@@ -47,6 +48,12 @@ const _settings = UserSetting(
   modoTransporte: TransportMode.bus,
   tema: 0,
   limiteFaltasPorDefecto: 6,
+  mascotaEsquina: true,
+  alarmaDespertar: true,
+  alarmaDespertarMin: 60,
+  alarmaSalir: true,
+  alarmaEvaluaciones: true,
+  avisoEvaluacionMin: 20 * 60,
 );
 
 /// Monta el provider de Hoy con clases, hora y ajustes fijos. Nada toca la BD.

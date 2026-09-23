@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers.dart';
@@ -22,6 +23,10 @@ enum ImportFailure {
 
   /// Sí hay texto, pero ninguna línea parece una clase.
   nothingFound,
+
+  /// Se leyó bien, pero guardar falló. No queda nada a medias: el guardado
+  /// va en una transacción.
+  saveFailed,
 }
 
 /// La máquina de estados del importador: A2 → A3 → A4 (o A5).
@@ -216,7 +221,8 @@ class ImportController extends StateNotifier<ImportState> {
         refining: true,
       );
       try {
-        final refined = await ClaudeScheduleParser().parse(lines.join('\n'));
+        final source = text.layout.trim().isNotEmpty ? text.layout : lines.join('\n');
+        final refined = await ClaudeScheduleParser().parse(source);
         if (_stale(generation)) return;
         if (refined.isNotEmpty) {
           classes = refined;
@@ -235,6 +241,17 @@ class ImportController extends StateNotifier<ImportState> {
     state = ImportReview(classes: classes, usedClaude: usedClaude);
   }
 
+  /// Durante la pasada con Claude: no esperar más y revisar lo que ya se
+  /// encontró. La respuesta, si llega, se descarta por generación.
+  void skipRefining() {
+    final s = state;
+    if (s is! ImportParsing || !s.refining) return;
+    _generation++;
+    state = s.found.isEmpty
+        ? const ImportFailed(ImportFailure.nothingFound)
+        : ImportReview(classes: s.found, usedClaude: false);
+  }
+
   /// Cancelar durante A3 vuelve a A2. Lo que estaba en vuelo se descarta al
   /// llegar porque la generación ya no coincide.
   void cancel() {
@@ -248,6 +265,14 @@ class ImportController extends StateNotifier<ImportState> {
   }
 
   // ------------------------------------------------------------- revisión
+
+  /// Entra directo a A4 con unas materias ya leídas. Para tests: así el
+  /// guardado se prueba con el horario real sin pasar por un PDF.
+  @visibleForTesting
+  void startReview(List<ParsedClass> classes) {
+    _generation++;
+    state = ImportReview(classes: classes, usedClaude: false);
+  }
 
   void updateClass(int index, ParsedClass updated) {
     final s = state;
@@ -351,21 +376,43 @@ class ImportController extends StateNotifier<ImportState> {
     final s = state;
     if (s is! ImportReview || !s.canConfirm) return;
     state = const ImportSaving();
+    try {
+      final (subjects, sessions) = await _save(s);
+      if (mounted) state = ImportDone(subjects: subjects, sessions: sessions);
+    } on Object {
+      // Antes un salón de más de 20 letras reventaba aquí a media materia: se
+      // guardaban las primeras y la pantalla se quedaba girando para siempre.
+      // Ahora la transacción deshace todo y la persona ve qué pasó.
+      if (mounted) state = const ImportFailed(ImportFailure.saveFailed);
+    }
+  }
 
+  /// Nombre y profesor aceptan hasta 80 en la base. Lo que venga más largo
+  /// del PDF se recorta en vez de hacer fallar el guardado.
+  static String _fit(String raw) {
+    final t = raw.trim();
+    return t.length <= 80 ? t : t.substring(0, 80).trim();
+  }
+
+  Future<(int, int)> _save(ImportReview s) async {
     final dao = _ref.read(subjectsDaoProvider);
     final defaultLimit = _ref.read(settingsProvider).valueOrNull?.limiteFaltasPorDefecto ??
         AttendanceCounter.defaultLimit;
 
+    // Todo o nada: si una materia falla, no se queda la mitad del horario.
+    return dao.transaction(() async {
     // Los colores siguen tras las materias que ya existen, para no repetir
     // el primero de la paleta en cada importación.
-    final existing = await dao.watchOverview().first;
+    final existing = await dao.watchOverview(includeArchived: true).first;
     var colorCursor = existing.length;
 
     // Los salones se comparten entre materias: se resuelven una sola vez.
     final roomIds = <String, int>{};
     Future<int?> ensureRoom(String? raw) async {
-      final codigo = raw?.trim();
+      var codigo = raw?.trim();
       if (codigo == null || codigo.isEmpty) return null;
+      // El contrato del salón es de 80. Un PDF raro no debe tumbar el guardado.
+      if (codigo.length > kRoomCodeMax) codigo = codigo.substring(0, kRoomCodeMax).trim();
       final cached = roomIds[codigo];
       if (cached != null) return cached;
       final id = await dao.ensureRoom(codigo: codigo);
@@ -376,10 +423,10 @@ class ImportController extends StateNotifier<ImportState> {
     var sessions = 0;
     for (final c in s.classes) {
       final subjectId = await dao.createSubject(
-        nombre: c.nombre.trim(),
+        nombre: _fit(c.nombre),
         colorIndex: colorCursor++ % SubjectPalette.length,
         limiteFaltas: defaultLimit,
-        profesor: c.profesor,
+        profesor: c.profesor == null ? null : _fit(c.profesor!),
         creditos: c.creditos,
       );
       for (final ses in c.sessions) {
@@ -394,9 +441,13 @@ class ImportController extends StateNotifier<ImportState> {
         sessions++;
       }
     }
-    state = ImportDone(subjects: s.classes.length, sessions: sessions);
+    return (s.classes.length, sessions);
+    });
   }
 }
+
+/// Largo máximo del código de salón. Igual a `Rooms.codigo`.
+const int kRoomCodeMax = 80;
 
 final importControllerProvider =
     StateNotifierProvider.autoDispose<ImportController, ImportState>(

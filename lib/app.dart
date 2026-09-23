@@ -3,18 +3,25 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/providers.dart';
+import 'features/alarms/application/alarms_controller.dart';
 import 'features/import/presentation/onboarding_screen.dart';
+import 'features/mascot/mascot_corner.dart';
 import 'features/shell/presentation/app_shell.dart';
 import 'features/subjects/application/subjects_providers.dart';
-import 'theme/transitions.dart';
+import 'features/widgets/home_widget_sync.dart';
 import 'l10n/strings.g.dart';
 import 'theme/app_theme.dart';
+import 'theme/transitions.dart';
 
 class CatedraApp extends ConsumerWidget {
   const CatedraApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Los widgets de la pantalla de inicio se alimentan solos desde aquí.
+    ref.watch(homeWidgetSyncProvider);
+    // Y los avisos de la víspera de cada evaluación.
+    ref.watch(evalRemindersSyncProvider);
     return MaterialApp(
       title: SOnboarding.brand,
       debugShowCheckedModeBanner: false,
@@ -31,6 +38,8 @@ class CatedraApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      // Erizógenes acompaña en todas las rutas, no solo en las pestañas.
+      builder: (context, child) => MascotCorner(child: child ?? const SizedBox.shrink()),
       home: const _Home(),
     );
   }

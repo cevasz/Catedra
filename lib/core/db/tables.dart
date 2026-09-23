@@ -34,6 +34,15 @@ class Subjects extends Table {
   DateTimeColumn get fechaLimiteCancelacion => dateTime().nullable()();
 
   BoolColumn get archivada => boolean().withDefault(const Constant(false))();
+
+  /// La persona canceló la materia ante la universidad. No es lo mismo que
+  /// archivarla: sigue en la lista, tachada, con sus notas y faltas intactas,
+  /// pero sale de Hoy, de la semana, del mapa y de los widgets. Se puede
+  /// reactivar: a veces la cancelación no pasa. Añadida en la v2.
+  BoolColumn get cancelada => boolean().withDefault(const Constant(false))();
+
+  /// Cuándo se marcó como cancelada. Solo para decirlo en la tarjeta.
+  DateTimeColumn get fechaCancelacion => dateTime().nullable()();
 }
 
 class Campuses extends Table {
@@ -47,7 +56,10 @@ class Campuses extends Table {
 
 class Rooms extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get codigo => text().withLength(min: 1, max: 20)();
+  /// Hasta 80 y no 20: los PDF traen salones como «Lab. de Física Mecánica y
+  /// Eléctrica» o «Sala de IT and Big Data - 5E». Con 20 el guardado del
+  /// importador reventaba a media materia y dejaba solo las primeras.
+  TextColumn get codigo => text().withLength(min: 1, max: 80)();
   TextColumn get edificio => text().nullable()();
 
   /// «Bloque 4, piso 2» (F1). El piso es su propia columna porque se usa para
@@ -121,6 +133,20 @@ class Evaluations extends Table {
   IntColumn get orden => integer().withDefault(const Constant(0))();
 }
 
+/// Un pendiente de una materia que no es una evaluación: un taller, una
+/// lectura, algo que entregar sin nota propia. Las evaluaciones siguen en
+/// `Evaluations`; el widget de pendientes muestra las dos cosas juntas.
+class Tasks extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get subjectId => integer().references(Subjects, #id)();
+  TextColumn get titulo => text().withLength(min: 1, max: 120)();
+
+  /// Nullable: «leer el capítulo 4» muchas veces no tiene fecha.
+  DateTimeColumn get fecha => dateTime().nullable()();
+  BoolColumn get hecha => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get creadaEn => dateTime().withDefault(currentDateAndTime)();
+}
+
 /// Fila única. `id` fijo en 1 para que un UPSERT no pueda duplicarla.
 class UserSettings extends Table {
   IntColumn get id => integer().withDefault(const Constant(1))();
@@ -134,6 +160,18 @@ class UserSettings extends Table {
   /// 0 auto, 1 claro, 2 oscuro. Coincide con ThemeMode.
   IntColumn get tema => integer().withDefault(const Constant(0))();
   IntColumn get limiteFaltasPorDefecto => integer().withDefault(const Constant(6))();
+
+  /// Erizógenes en la esquina de la app, reaccionando a lo que haces.
+  BoolColumn get mascotaEsquina => boolean().withDefault(const Constant(true))();
+
+  // Alarmas en el Reloj del teléfono. Qué tipos se crean y con qué margen.
+  BoolColumn get alarmaDespertar => boolean().withDefault(const Constant(true))();
+  IntColumn get alarmaDespertarMin => integer().withDefault(const Constant(60))();
+  BoolColumn get alarmaSalir => boolean().withDefault(const Constant(true))();
+  BoolColumn get alarmaEvaluaciones => boolean().withDefault(const Constant(true))();
+
+  /// Minutos desde medianoche del aviso de la víspera de una evaluación.
+  IntColumn get avisoEvaluacionMin => integer().withDefault(const Constant(20 * 60))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

@@ -13,6 +13,7 @@ import '../../domain/departure/departure.dart';
 import 'daos/schedule_dao.dart';
 import 'daos/settings_dao.dart';
 import 'daos/subjects_dao.dart';
+import 'daos/tasks_dao.dart';
 import 'schema_versions.dart';
 import 'tables.dart';
 
@@ -27,9 +28,10 @@ part 'database.g.dart';
     ClassSessions,
     SessionInstances,
     Evaluations,
+    Tasks,
     UserSettings,
   ],
-  daos: [ScheduleDao, SubjectsDao, SettingsDao],
+  daos: [ScheduleDao, SubjectsDao, SettingsDao, TasksDao],
 )
 class CatedraDatabase extends _$CatedraDatabase {
   CatedraDatabase() : super(_open());
@@ -38,7 +40,7 @@ class CatedraDatabase extends _$CatedraDatabase {
   CatedraDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -51,15 +53,30 @@ class CatedraDatabase extends _$CatedraDatabase {
             mode: InsertMode.insertOrIgnore,
           );
         },
-        // Todavía no hay ningún paso: v1 es la primera versión publicada. El
-        // `stepByStep` vacío está aquí a propósito y no como olvido — el día
-        // que suba `schemaVersion`, drift obliga a declarar el salto aquí en
-        // vez de dejar a los usuarios con datos frente a un esquema viejo.
-        //
-        // El esquema de cada versión se exporta a `drift_schemas/` con
-        // `dart run drift_dev schema dump`, y `test/core/migration_test.dart`
-        // verifica los saltos contra esos volcados.
-        onUpgrade: stepByStep(),
+        // Cada salto se declara aquí. El esquema de cada versión se exporta a
+        // `drift_schemas/` con `dart run drift_dev schema dump`, y
+        // `test/core/migration_test.dart` verifica los saltos contra esos
+        // volcados.
+        onUpgrade: stepByStep(
+          // v2: materia cancelada. Dos columnas nuevas con default, así que
+          // las materias que ya existen quedan activas sin tocar nada más.
+          from1To2: (m, schema) async {
+            await m.addColumn(schema.subjects, schema.subjects.cancelada);
+            await m.addColumn(schema.subjects, schema.subjects.fechaCancelacion);
+          },
+          // v3: pendientes por materia, Erizógenes en la esquina y alarmas.
+          // Una tabla nueva y columnas con default: nada que ya exista cambia.
+          from2To3: (m, schema) async {
+            await m.createTable(schema.tasks);
+            final s = schema.userSettings;
+            await m.addColumn(s, s.mascotaEsquina);
+            await m.addColumn(s, s.alarmaDespertar);
+            await m.addColumn(s, s.alarmaDespertarMin);
+            await m.addColumn(s, s.alarmaSalir);
+            await m.addColumn(s, s.alarmaEvaluaciones);
+            await m.addColumn(s, s.avisoEvaluacionMin);
+          },
+        ),
         beforeOpen: (details) async {
           // Las claves foráneas están apagadas por defecto en SQLite.
           await customStatement('PRAGMA foreign_keys = ON');

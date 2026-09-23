@@ -5,7 +5,12 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 /// páginas tenía. `lines` vacío con `pages > 0` es un PDF escaneado como
 /// imagen: hay páginas pero no hay texto que leer.
 class PdfTextResult {
-  const PdfTextResult({required this.lines, required this.pages, this.positioned = const []});
+  const PdfTextResult({
+    required this.lines,
+    required this.pages,
+    this.positioned = const [],
+    this.layout = '',
+  });
 
   final List<String> lines;
   final int pages;
@@ -13,6 +18,11 @@ class PdfTextResult {
   /// Líneas con coordenadas, útil para parsers que necesitan la posición X
   /// (por ejemplo, para distinguir columnas de día en una tabla de horario).
   final List<PositionedLine> positioned;
+
+  /// El texto con la disposición de la página (columnas alineadas con
+  /// espacios). Es lo que se manda a Claude: en una retícula, la columna de
+  /// cada celda dice el día, y en `lines` esa información se pierde.
+  final String layout;
 
   bool get hasText => lines.any((l) => l.trim().isNotEmpty);
 }
@@ -94,10 +104,11 @@ abstract final class PdfText {
 
       var lines = textLines.map((l) => normalizeSpaces(l.text)).where((t) => t.isNotEmpty).toList();
 
+      final plain = PdfTextExtractor(doc).extractText(layoutText: true);
+
       // Algunos PDF no traen estructura de renglón y el extractor devuelve una
       // sola línea por página. En ese caso el texto plano parte mejor.
       if (lines.length <= pages) {
-        final plain = PdfTextExtractor(doc).extractText(layoutText: true);
         final split = plain
             .split(RegExp(r'\r?\n'))
             .map(normalizeSpaces)
@@ -106,7 +117,12 @@ abstract final class PdfText {
         if (split.length > lines.length) lines = split;
       }
 
-      return PdfTextResult(lines: lines, pages: pages, positioned: positioned);
+      return PdfTextResult(
+        lines: lines,
+        pages: pages,
+        positioned: positioned,
+        layout: plain.replaceAll(_exoticSpace, ' '),
+      );
     } finally {
       doc.dispose();
     }

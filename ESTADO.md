@@ -1,13 +1,12 @@
-# Estado del programa · 22 de septiembre de 2026
+# Estado del programa · 22 de septiembre de 2026 (tarde)
 
 Cátedra es una app Flutter (Riverpod + Drift, offline primero) para
 estudiantes universitarios en Colombia. Este archivo dice qué funciona hoy,
 qué falta y en qué orden conviene seguir. Las razones de cada decisión están
 en `DESIGN_DECISIONS.md`; la estructura, en `ARCHITECTURE.md`.
 
-**Cifras:** 66 archivos Dart escritos a mano, 136 tests en verde,
-`flutter analyze` sin errores ni avisos (quedan 254 sugerencias `info`, casi
-todas `prefer_const_constructors`, que `dart fix --apply` resuelve).
+**Cifras:** 158 tests en verde, `flutter analyze` sin errores ni avisos,
+esquema de base v3.
 
 ## Funciona
 
@@ -23,9 +22,12 @@ todas `prefer_const_constructors`, que `dart fix --apply` resuelve).
 - [x] A4: revisión en sitio con motivo de cada duda, horario por chips, quitar materia, agregar a mano; «Confirmar N clases» se habilita cuando todo tiene nombre y día
 - [x] A5: error con la mascota confundida y tres cuerpos según el motivo
 - [x] Guardado: materias con color por orden, salones reutilizados, sesiones materializadas
+- [x] Guardado todo o nada, en una transacción; si falla, A5 lo dice. Antes un salón de más de 20 letras colgaba la pantalla con 2–3 materias guardadas (§27)
+- [x] Durante la pasada con Claude, «Seguir con lo que encontré»
 - [x] Entradas: bienvenida, icono en Materias y botón en su estado vacío
 
 ### Hoy
+- [x] Erizógenes compañero en la cabecera: consejos de tus datos (próxima clase y hora de salir, faltas en riesgo, evaluaciones de la semana, huecos, fecha límite de cancelación); tocarlo cambia de consejo (§29)
 - [x] Cuenta atrás hasta la hora de salir, con anillo que se vacía y odómetro
 - [x] Estado «sal ya»: anillo terracota, háptica pesada, mascota rodando en la esquina
 - [x] Botones «Ya voy» (marca asistencia y avanza a la siguiente) y «Cancelar»
@@ -45,10 +47,36 @@ todas `prefer_const_constructors`, que `dart fix --apply` resuelve).
 - [x] Lista con semáforo de faltas y acumulada, en cascada
 - [x] Alta y edición: nombre, profesor, créditos, límite, color, fecha límite de cancelación, horario
 - [x] Borrado en cascada con confirmación
+- [x] Cancelar materia: sale de Hoy, semana, mapa y widgets; queda al final de la lista, tachada, con su historial; se reactiva (§28)
+- [x] Mantener pulsada una tarjeta: editar, cancelar o reactivar
+- [x] Cuenta regresiva a la fecha límite de cancelación en la pantalla de la materia
 - [x] Detalle en dos pestañas (Notas / Asistencia) con fecha límite de cancelación visible
 - [x] Notas: acumulada, proyección, aviso si los porcentajes no suman 100, alta/edición de evaluaciones
 - [x] Asistencia: anillo segmentado, «Te quedan N faltas», historial con deshacer, tachado animado
 - [x] Calculadora inversa con tres veredictos (alcanzable / exigente / no da) y otras metas
+
+### Mapa
+- [x] OpenStreetMap teñido con la paleta; pines con el código del salón y el color de la materia; el del próximo salón resaltado
+- [x] «Tu próximo salón» con hora de salir, distancia e «Iniciar ruta» (abre la app de mapas con el modo de Ajustes)
+- [x] Ubicar un salón a mano una vez: se arrastra el mapa bajo el pin y «Aquí queda»; mover, quitar e indicaciones por salón
+- [x] Buscar salón o materia; «Mi ubicación» pide permiso solo al tocarlo
+
+### Widgets de inicio (Android)
+- [x] Próxima clase en tres tamaños (2×1, 2×2, 4×2+): hora de salir, cuenta atrás en vivo, materia y salón, llegada estimada («llegas 6:55 · 5 min antes»), Erizógenes con su frase; urgente en terracota; «Mañana» en vez de «Sin clases hoy» cuando el día ya acabó (§33)
+- [x] Pendientes (2×2, 4×2, 4×4): evaluaciones y tareas de todas las materias por fecha, con el color de cada una
+- [x] Tu día (4×2): hasta cuatro clases, canceladas tachadas, pasadas atenuadas
+- [x] Se actualizan solos a la hora de salir y al empezar/terminar cada clase
+
+### Erizógenes
+- [x] Tacto: toque = salto con púas erizadas; cinco toques = mareado; mantener = se sonroja; arrastrar = te sigue con la mirada
+- [x] En toda la app: asoma en la esquina y comenta lo que haces (asistir, faltar, notas, tareas, alarmas); tocarlo suelta una sentencia; se apaga en Ajustes (§32)
+- [x] Rueda en las cargas en lugar de un spinner, con frases que cambian
+- [x] Voz de Diógenes: varias frases por consejo con los mismos datos y sentencias sueltas; nunca junto a una materia perdida
+
+### Pendientes y alarmas
+- [x] Pestaña Pendientes en cada materia: evaluaciones sin nota que vienen y tareas propias con fecha opcional, tachado y deshacer (§34)
+- [x] Alarmas en el Reloj del teléfono (despertar y hora de salir, agrupadas por días) con un botón en Ajustes; Alarmy no acepta alarmas de otras apps (§35)
+- [x] Aviso la víspera de cada evaluación, como notificación de Cátedra, a la hora elegida
 
 ### Ajustes
 - [x] Buffer (0–30 min), transporte por defecto, límite de faltas por defecto, tema
@@ -75,8 +103,7 @@ todas `prefer_const_constructors`, que `dart fix --apply` resuelve).
 | «Abrir la ruta» y hora de salida real | 4 | Ubicación, geocodificar salones, ruta a pie/bus/carro; el diseño de permisos denegados no existe |
 | Pre-marcado de faltas por geofence | 4 | Polígono del campus (tabla `Campuses` ya existe), pregunta de fin de día; sin diseño |
 | Notificación programada y escalado a urgente | 4 | Sin diseño |
-| Pestaña Mapa | 4 | Hoy es un marcador de posición |
-| Widgets de pantalla de inicio (2×2, 4×2, 4×4) | 5 | Tokens listos; falta el Kotlin de Glance |
+| Geocodificar salones automáticamente | 4 | No hay servicio que sepa dónde queda un salón; hoy se ubican a mano (§30) |
 | Sync con Supabase | 6 | Sin diseño; el esquema no lo condiciona |
 | Estadísticas de fin de semestre | 6 | Sin diseño |
 | Cambio de semestre | — | La tabla existe y se crea uno por defecto; no hay pantalla para cerrarlo ni abrir otro |
@@ -89,11 +116,18 @@ todas `prefer_const_constructors`, que `dart fix --apply` resuelve).
 - El parser de retícula está probado contra un PDF real (Santo Tomás). Faltan dos o tres de otras universidades para saber qué tan general es el formato `Cod./Prog./Grupo.`; el heurístico sigue con sus doce casos sintéticos.
 - No hay test del importador de punta a punta con una retícula: el escritor de PDF de Syncfusion fusiona las columnas de una misma fila, así que no se puede generar una retícula sintética. Se prueba el parser con el fixture real.
 - La pasada con Claude no está probada contra la API real desde la app (sí el decodificador de su respuesta). Hoy casi nunca se llama: solo si lo determinista falla.
-- La estimación de tiempo de ruta es fija por modo (15 / 35 / 20 min) hasta la Fase 4.
+- La estimación de tiempo de ruta es fija por modo (15 / 35 / 20 min): el mapa ya sabe la distancia, pero todavía no la usa para la hora de salir. La llegada estimada de los widgets hereda esa limitación.
+- Las alarmas del Reloj no se pueden borrar ni actualizar desde Cátedra (Android no lo permite): si cambia el horario, hay que borrarlas a mano y crearlas otra vez.
+- Los avisos de evaluación no sobreviven a un reinicio hasta que se abre la app.
+- El widget «Tu día» a última hora de la noche sigue enseñando las clases de hoy, atenuadas; podría pasar a las de mañana.
+- `gradle.properties` pide 8 GB para el daemon y el equipo tiene 7: un build de cada tanto muere con «daemon disappeared». Bajar `-Xmx` lo evitaría.
+- Los widgets no tienen test automático (son Kotlin); se probaron compilando. Revisarlos a mano en un teléfono.
+- Los mosaicos de OpenStreetMap necesitan red y su política de uso pide no abusar; para una distribución pública conviene un proveedor de mosaicos propio.
 - «Lo próximo» solo mira sesiones ya materializadas (16 semanas desde el alta de la clase).
 - Los formularios abren a pantalla completa también en tablet; podrían ser diálogos.
 - Sin tests de widget para las pantallas completas: se prueba el dominio, los providers de Hoy, la mascota y el tachado.
 - `pacr42 (1) (3)-1.pdf` está versionado y lleva nombre y cédula del estudiante. El fixture de test sí está anonimizado.
+- Si un PDF de otro formato vuelve a importar solo unas materias, conviene guardar sus líneas como fixture: con el PDF de la Santo Tomás el parser saca las 7.
 
 ## Siguiente paso recomendado
 

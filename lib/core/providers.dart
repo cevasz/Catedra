@@ -5,6 +5,7 @@ import '../theme/tokens.g.dart';
 import 'db/daos/schedule_dao.dart';
 import 'db/daos/settings_dao.dart';
 import 'db/daos/subjects_dao.dart';
+import 'db/daos/tasks_dao.dart';
 import 'db/database.dart';
 
 /// Instancia única de la base. Se cierra con el ciclo de vida del ProviderScope.
@@ -20,6 +21,10 @@ final scheduleDaoProvider = Provider<ScheduleDao>(
 
 final subjectsDaoProvider = Provider<SubjectsDao>(
   (ref) => ref.watch(databaseProvider).subjectsDao,
+);
+
+final tasksDaoProvider = Provider<TasksDao>(
+  (ref) => ref.watch(databaseProvider).tasksDao,
 );
 
 final settingsDaoProvider = Provider<SettingsDao>(

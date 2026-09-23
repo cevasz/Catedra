@@ -8,6 +8,7 @@ import '../../../../l10n/strings.g.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../theme/haptics.dart';
 import '../../../../theme/tokens.g.dart';
+import '../../../mascot/application/mascot_voice.dart';
 
 /// Alta y edición de una evaluación.
 ///
@@ -80,6 +81,9 @@ class _EvaluationFormState extends ConsumerState<_EvaluationForm> {
           porcentaje: _parse(_porcentaje.text)! / 100,
           nota: _nota.text.trim().isEmpty ? null : _parse(_nota.text),
         );
+    ref.read(mascotCornerProvider.notifier).react(
+      _nota.text.trim().isEmpty ? MascotReaction.saved : MascotReaction.grade,
+    );
     if (mounted) Navigator.of(context).pop();
   }
 

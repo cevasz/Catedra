@@ -34,11 +34,82 @@ void main(List<String> args) {
     ..createSync(recursive: true)
     ..writeAsStringSync(_buildStrings(tokens['copy'] as Map<String, dynamic>));
 
+  // Los widgets de la pantalla de inicio son vistas nativas de Android: no
+  // leen ColorTokens. Sus colores salen del mismo contrato, a recursos XML.
+  final color = tokens['color'] as Map<String, dynamic>;
+  File('$root/android/app/src/main/res/values/catedra_tokens.xml')
+    ..createSync(recursive: true)
+    ..writeAsStringSync(_buildAndroidColors(color, dark: false));
+  File('$root/android/app/src/main/res/values-night/catedra_tokens.xml')
+    ..createSync(recursive: true)
+    ..writeAsStringSync(_buildAndroidColors(color, dark: true));
+
+  // Los textos que el lanzador enseña al elegir un widget también son copy.
+  File('$root/android/app/src/main/res/values/catedra_strings.xml')
+    ..createSync(recursive: true)
+    ..writeAsStringSync(_buildAndroidStrings(
+      (tokens['copy'] as Map<String, dynamic>)['widgets'] as Map<String, dynamic>,
+    ));
+
   stdout.writeln('Regenerados desde design/tokens.json:');
   stdout.writeln('  lib/theme/tokens.g.dart');
   stdout.writeln('  lib/domain/attendance/absence_state.g.dart  (Dart puro)');
   stdout.writeln('  lib/l10n/strings.g.dart');
+  stdout.writeln('  android/app/src/main/res/values{,-night}/catedra_tokens.xml');
 }
+
+// ------------------------------------------------- colores de Android (widgets)
+
+/// `#RRGGBB` o `rgba(...)` -> `#AARRGGBB`, que es lo que Android entiende.
+String _androidColor(String raw) {
+  final dart = _color(raw); // Color(0xAARRGGBB)
+  return '#${dart.substring(8, 16)}';
+}
+
+String _buildAndroidColors(Map<String, dynamic> color, {required bool dark}) {
+  final mode = dark ? 'dark' : 'light';
+  final b = StringBuffer()
+    ..writeln('<?xml version="1.0" encoding="utf-8"?>')
+    ..writeln('<!-- GENERADO por tool/gen_tokens.dart desde design/tokens.json. NO EDITAR A MANO. -->')
+    ..writeln('<resources>');
+  void add(String name, String raw) => b.writeln('    <color name="catedra_$name">${_androidColor(raw)}</color>');
+
+  for (final group in ['surface', 'accent', 'text']) {
+    final g = color[group] as Map<String, dynamic>;
+    for (final e in g.entries) {
+      if (_meta(e.key) || e.value is! Map) continue;
+      final v = e.value as Map<String, dynamic>;
+      final raw = v[mode];
+      if (raw is! String) continue;
+      add('${group}_${_snake(e.key)}', raw);
+    }
+  }
+  final subjects = (color['subject'] as List).cast<Map<String, dynamic>>();
+  for (var i = 0; i < subjects.length; i++) {
+    add('subject_$i', subjects[i]['value'] as String);
+  }
+  b.writeln('</resources>');
+  return b.toString();
+}
+
+/// Solo los textos del selector de widgets (`picker*`): lo demás lo pinta
+/// Flutter o llega ya formateado en los datos del widget.
+String _buildAndroidStrings(Map<String, dynamic> widgets) {
+  String esc(String v) => v.replaceAll("'", r"\'").replaceAll('"', r'\"');
+  final b = StringBuffer()
+    ..writeln('<?xml version="1.0" encoding="utf-8"?>')
+    ..writeln('<!-- GENERADO por tool/gen_tokens.dart desde design/tokens.json. NO EDITAR A MANO. -->')
+    ..writeln('<resources>');
+  for (final e in widgets.entries) {
+    if (!e.key.startsWith('picker') || e.value is! String) continue;
+    b.writeln('    <string name="widget_${_snake(e.key)}">${esc(e.value as String)}</string>');
+  }
+  b.writeln('</resources>');
+  return b.toString();
+}
+
+String _snake(String camel) =>
+    camel.replaceAllMapped(RegExp('[A-Z]'), (m) => '_${m.group(0)!.toLowerCase()}');
 
 // ---------------------------------------------------------------- utilidades
 
@@ -565,8 +636,28 @@ String _buildStrings(Map<String, dynamic> copy) {
     for (final e in map.entries) {
       if (_meta(e.key)) continue;
       if (e.value is List) {
-        final items = (e.value as List).map((v) => "'$v'").join(', ');
-        b.writeln('  static const List<String> ${e.key} = <String>[$items];');
+        // Una lista son variantes de la misma frase: Erizógenes no repite
+        // siempre lo mismo. Si alguna lleva huecos, la lista se vuelve una
+        // función con la unión de los huecos y devuelve las variantes llenas.
+        final list = (e.value as List).cast<String>();
+        final holders = {
+          for (final v in list) ...RegExp(r'\{(\w+)\}').allMatches(v).map((m) => m.group(1)!),
+        }.toList();
+        String fill(String v) {
+          var body = _dartString(v);
+          for (final h in holders) {
+            body = body.replaceAll('{$h}', '\$$h');
+          }
+          return body;
+        }
+
+        final items = list.map(fill).join(', ');
+        if (holders.isEmpty) {
+          b.writeln('  static const List<String> ${e.key} = <String>[$items];');
+        } else {
+          final params = holders.map((h) => 'required Object $h').join(', ');
+          b.writeln('  static List<String> ${e.key}({$params}) => <String>[$items];');
+        }
         continue;
       }
       final value = e.value as String;

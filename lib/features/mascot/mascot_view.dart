@@ -8,6 +8,7 @@
 //   A1  splash / bienvenida
 //   A3  procesando el PDF          (pose: examinando)
 //   A5  error de lectura del PDF   (pose: confundido)
+//   B1  compañero en la cabecera de Hoy, con consejos (pose según el consejo)
 //   B2  «sal ya», pequeño en la esquina de la card (pose: rodando)
 //   B4  sin clases hoy             (pose: dormido)
 //   D3  materia sin notas          (pose: reposo)
@@ -32,6 +33,13 @@
 //   confundido             el monóculo se bambolea ±4°; la cabeza no
 //   entrada (todas)        una vez: escala 0,6 → 1 con easeOutBackBounce
 //
+// TACTO (solo si `interactive`, que es el default)
+//   toque                  salta, eriza las púas y el monóculo brinca
+//   cinco toques seguidos  se marea: pose confundido un par de segundos
+//   mantener pulsado       entrecierra los ojos y se sonroja; no lo admitirá
+//   arrastrar el dedo      la mirada sigue al dedo
+//   Quien lo usa recibe `onTap` / `onLongPress` para decir algo útil.
+//
 // Bajo reduced-motion las poses se congelan en su primer fotograma. No se
 // ocultan: la mascota sigue ahí, quieta.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -41,6 +49,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.g.dart';
+import '../../theme/haptics.dart';
 import '../../theme/motion.dart';
 import '../../theme/tokens.g.dart';
 
@@ -56,7 +66,11 @@ enum MascotHost {
   emptyDay('B4 sin clases hoy'),
   emptyGrades('D3 materia sin notas'),
   milestone('hitos'),
-  widget4x4('widget 4x4');
+  companion('B1 compañero'),
+  widget4x4('widget 4x4'),
+  loader('carga'),
+  corner('esquina global'),
+  homeWidget('widgets');
 
   const MascotHost(this.contractName);
 
@@ -69,6 +83,9 @@ class MascotView extends StatefulWidget {
     required this.pose,
     required this.size,
     required this.host,
+    this.interactive = true,
+    this.onTap,
+    this.onLongPress,
     super.key,
   });
 
@@ -79,6 +96,15 @@ class MascotView extends StatefulWidget {
   /// propósito: si no sabes en qué pantalla estás, no deberías poner la mascota.
   final MascotHost host;
 
+  /// Reacciona al tacto. Apagado solo donde un toque se confundiría con otro
+  /// control, como la esquina del «sal ya».
+  final bool interactive;
+
+  /// Se llama después de la reacción. El erizo reacciona siempre; qué dice es
+  /// cosa de quien lo pone.
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
   @override
   State<MascotView> createState() => _MascotViewState();
 }
@@ -88,7 +114,19 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
   late final AnimationController _aux; // squash, z, mirada o bamboleo
   late final AnimationController _enter; // una vez, al aparecer
   late final AnimationController _blink;
+  late final AnimationController _poke; // salto al tocarlo
   bool _entered = false;
+
+  /// Hacia dónde mira mientras lo arrastras, en -1..1 por eje.
+  Offset _look = Offset.zero;
+
+  /// Mantenido pulsado: ojos entrecerrados y rubor.
+  bool _petted = false;
+
+  /// Toques recientes. A partir de cinco se marea.
+  final List<DateTime> _pokes = [];
+  bool _dizzy = false;
+  Timer? _dizzyTimer;
   Timer? _blinkTimer;
   final _random = math.Random();
 
@@ -105,16 +143,59 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
     _aux = AnimationController(vsync: this, duration: _auxDuration ?? MotionDurations.base);
     _enter = AnimationController(vsync: this, duration: MotionDurations.mascotEnter);
     _blink = AnimationController(vsync: this, duration: MotionDurations.mascotBlink);
+    _poke = AnimationController(vsync: this, duration: MotionDurations.mascotEnter);
   }
 
-  Duration get _idleDuration => switch (widget.pose) {
+  /// La pose que se dibuja: la pedida, salvo que esté mareado.
+  MascotPose get _pose => _dizzy ? MascotPose.confundido : widget.pose;
+
+  void _handleTap() {
+    unawaited(Haptics.fire('tocarMascota'));
+    final now = DateTime.now();
+    _pokes
+      ..add(now)
+      ..removeWhere((t) => now.difference(t) > MascotTokens.blinkMin);
+    if (_pokes.length >= 5 && !_dizzy) {
+      _pokes.clear();
+      setState(() => _dizzy = true);
+      _syncMotion();
+      _dizzyTimer?.cancel();
+      _dizzyTimer = Timer(MascotTokens.blinkMin ~/ 2, () {
+        if (!mounted) return;
+        setState(() => _dizzy = false);
+        _syncMotion();
+      });
+    }
+    if (!MotionGuard.of(context).reduced) _poke.forward(from: 0);
+    widget.onTap?.call();
+  }
+
+  void _handleLongPress() {
+    unawaited(Haptics.fire('tocarMascota'));
+    setState(() => _petted = true);
+    widget.onLongPress?.call();
+  }
+
+  void _lookAt(Offset local) {
+    final half = widget.size / 2;
+    final dx = ((local.dx - half) / half).clamp(-1.0, 1.0);
+    final dy = ((local.dy - half) / half).clamp(-1.0, 1.0);
+    setState(() => _look = Offset(dx, dy));
+  }
+
+  void _release() => setState(() {
+        _look = Offset.zero;
+        _petted = false;
+      });
+
+  Duration get _idleDuration => switch (_pose) {
         MascotPose.rodando => MotionDurations.mascotRoll,
         MascotPose.dormido => MotionDurations.mascotSleep,
         _ => MotionDurations.mascotBreathe,
       };
 
   /// Null cuando la pose no tiene segundo movimiento.
-  Duration? get _auxDuration => switch (widget.pose) {
+  Duration? get _auxDuration => switch (_pose) {
         // El squash va al doble de frecuencia que la rodada: dos contactos
         // con el suelo por vuelta.
         MascotPose.rodando => MotionDurations.mascotRoll ~/ 2,
@@ -160,7 +241,9 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
       return;
     }
 
-    switch (widget.pose) {
+    _idle.duration = _idleDuration;
+    _aux.duration = _auxDuration ?? MotionDurations.base;
+    switch (_pose) {
       case MascotPose.rodando:
         _idle.repeat();
         _aux.repeat(reverse: true);
@@ -180,8 +263,7 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
     if (_eyesCanBlink) _scheduleBlink();
   }
 
-  bool get _eyesCanBlink =>
-      widget.pose != MascotPose.dormido && widget.pose != MascotPose.satisfecho;
+  bool get _eyesCanBlink => _pose != MascotPose.dormido && _pose != MascotPose.satisfecho;
 
   /// Cada 4–7 s. El intervalo se sortea de nuevo tras cada parpadeo para que no
   /// caiga en un ritmo perceptible.
@@ -200,6 +282,8 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
   @override
   void dispose() {
     _blinkTimer?.cancel();
+    _dizzyTimer?.cancel();
+    _poke.dispose();
     _idle.dispose();
     _aux.dispose();
     _enter.dispose();
@@ -220,11 +304,11 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
       curve: guard.curve(MotionCurves.easeOutBackBounce),
     );
 
-    return RepaintBoundary(
+    final art = RepaintBoundary(
       child: SizedBox.square(
         dimension: widget.size,
         child: AnimatedBuilder(
-          animation: Listenable.merge([_idle, _aux, _blink, _enter]),
+          animation: Listenable.merge([_idle, _aux, _blink, _enter, _poke]),
           builder: (context, _) {
             // Entrada: sobrepasa un poco y asienta. El origen es la base de la
             // silueta para que parezca que llega al suelo, no que se infla.
@@ -237,11 +321,14 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
                 alignment: Alignment.bottomCenter,
                 child: CustomPaint(
                   painter: _ErizogenesPainter(
-                    pose: widget.pose,
+                    pose: _pose,
                     rim: rim,
                     idle: _idle.value,
                     aux: _aux.value,
-                    blink: _blink.value,
+                    blink: _petted ? 0 : _blink.value,
+                    poke: _poke.isAnimating ? _poke.value : 0,
+                    look: _look,
+                    petted: _petted,
                   ),
                 ),
               ),
@@ -250,7 +337,53 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
         ),
       ),
     );
+
+    if (!widget.interactive) return art;
+    return Semantics(
+      button: true,
+      label: SMascotVoice.hint,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _handleTap,
+        onLongPress: _handleLongPress,
+        onLongPressEnd: (_) => _release(),
+        onPanStart: (d) => _lookAt(d.localPosition),
+        onPanUpdate: (d) => _lookAt(d.localPosition),
+        onPanEnd: (_) => _release(),
+        onPanCancel: _release,
+        child: art,
+      ),
+    );
   }
+}
+
+/// Erizógenes quieto, en el fotograma de reposo de la pose: sin entrada,
+/// sin parpadeo, sin temporizadores.
+///
+/// Existe para los widgets de la pantalla de inicio, que son vistas nativas:
+/// ahí se captura una sola imagen y un `MascotView` capturado en su primer
+/// fotograma saldría a mitad de la entrada, encogido y medio transparente.
+/// No lleva `host` porque no se monta en ninguna pantalla: se rasteriza.
+class MascotStill extends StatelessWidget {
+  const MascotStill({required this.pose, required this.size, required this.brightness, super.key});
+
+  final MascotPose pose;
+  final double size;
+  final Brightness brightness;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+        dimension: size,
+        child: CustomPaint(
+          painter: _ErizogenesPainter(
+            pose: pose,
+            rim: brightness == Brightness.dark || MascotTokens.rimLightOnLightTheme,
+            idle: 0,
+            aux: 0,
+            blink: 0,
+          ),
+        ),
+      );
 }
 
 /// Parámetros de una pose. Portados uno a uno del prototipo Erizogenes.dc.html
@@ -318,9 +451,24 @@ class _ErizogenesPainter extends CustomPainter {
     required this.idle,
     required this.aux,
     required this.blink,
+    this.poke = 0,
+    this.look = Offset.zero,
+    this.petted = false,
   });
 
   final MascotPose pose;
+
+  /// 0..1 durante el salto de un toque; 0 en reposo.
+  final double poke;
+
+  /// Hacia dónde mira mientras lo arrastras, -1..1 por eje.
+  final Offset look;
+
+  /// Mantenido pulsado: ojos entrecerrados y rubor.
+  final bool petted;
+
+  /// Curva del salto: sube y baja una vez, 0 en los extremos.
+  double get _hop => math.sin(poke * math.pi);
   final bool rim;
 
   /// 0..1. Respiración, sueño o ángulo de rodada según la pose.
@@ -342,6 +490,20 @@ class _ErizogenesPainter extends CustomPainter {
 
     canvas.save();
     canvas.scale(scale);
+
+    // Toque: salta y, al despegar y al caer, se aplasta contra el suelo.
+    if (poke > 0) {
+      canvas.translate(0, -12 * _hop);
+      final squash = poke < 0.18
+          ? (0.18 - poke) / 0.18
+          : poke > 0.82
+              ? (poke - 0.82) / 0.18
+              : 0.0;
+      final originY = p.cy + p.ry;
+      canvas.translate(50, originY);
+      canvas.scale(1 + 0.08 * squash, 1 - 0.1 * squash);
+      canvas.translate(-50, -originY);
+    }
 
     // Rodada: gira el conjunto alrededor del centro del cuerpo y, encima, se
     // aplasta y estira al ritmo: dos contactos con el suelo por vuelta.
@@ -379,6 +541,7 @@ class _ErizogenesPainter extends CustomPainter {
     _paintBody(canvas, p);
     if (rim) _paintRim(canvas, p);
     _paintEyes(canvas, p, small);
+    if (petted) _paintBlush(canvas, p);
     _paintMonocle(canvas, p, small);
     if (p.paw) _paintPaw(canvas, p);
     if (pose == MascotPose.dormido) _paintZs(canvas);
@@ -414,6 +577,17 @@ class _ErizogenesPainter extends CustomPainter {
     }
   }
 
+  /// Rubor bajo los ojos cuando lo acarician. Discreto: es un erizo serio.
+  void _paintBlush(Canvas canvas, _PoseSpec p) {
+    final paint = Paint()..color = ColorTokens.mascotMonocle.withValues(alpha: 0.28);
+    for (final cx in [33.0, 66.0]) {
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset(cx, p.cy + 6), width: 9, height: 4.5),
+        paint,
+      );
+    }
+  }
+
   void _paintSpeedLines(Canvas canvas) {
     final paint = Paint()
       ..color = ColorTokens.mascotMonocle
@@ -435,7 +609,8 @@ class _ErizogenesPainter extends CustomPainter {
 
   void _paintSpikes(Canvas canvas, _PoseSpec p, bool small) {
     final n = small ? MascotTokens.spikesSmall : MascotTokens.spikesNormal;
-    final length = p.spikeLength * (small ? 1.5 : 1.15);
+    // Un toque las eriza: crecen un tercio en lo alto del salto.
+    final length = p.spikeLength * (small ? 1.5 : 1.15) * (1 + 0.35 * _hop);
     final spikeRy = small ? 5.4 : 3.5;
     final paint = Paint()..color = ColorTokens.mascotSpikes;
 
@@ -498,9 +673,10 @@ class _ErizogenesPainter extends CustomPainter {
   void _paintEyes(Canvas canvas, _PoseSpec p, bool small) {
     final eyeY = p.cy - 4;
     final eyeR = small ? 8.0 : 7.0;
-    final eyeRy = p.eye == _Eye.squint ? (small ? 3.2 : 2.6) : (small ? 8.6 : 7.8);
+    final eye = petted && p.eye == _Eye.open ? _Eye.squint : p.eye;
+    final eyeRy = eye == _Eye.squint ? (small ? 3.2 : 2.6) : (small ? 8.6 : 7.8);
 
-    if (p.eye == _Eye.arc) {
+    if (eye == _Eye.arc) {
       final paint = Paint()
         ..color = ColorTokens.mascotEye
         ..style = PaintingStyle.stroke
@@ -525,7 +701,7 @@ class _ErizogenesPainter extends CustomPainter {
 
     final white = Paint()..color = ColorTokens.mascotEye;
     final pupil = Paint()..color = ColorTokens.mascotPupil;
-    final pupilR = p.eye == _Eye.squint ? (small ? 2.6 : 2.2) : (small ? 3.6 : 3.1);
+    final pupilR = eye == _Eye.squint ? (small ? 2.6 : 2.2) : (small ? 3.6 : 3.1);
 
     // Examinando: la mirada barre de lado a lado, como quien lee una fila.
     final glance = pose == MascotPose.examinando
@@ -537,14 +713,19 @@ class _ErizogenesPainter extends CustomPainter {
         Rect.fromCenter(center: Offset(cx, eyeY), width: eyeR * 2, height: eyeRy * 2),
         white,
       );
-      canvas.drawCircle(Offset(cx + p.gaze.dx + glance, eyeY + p.gaze.dy), pupilR, pupil);
+      canvas.drawCircle(
+        Offset(cx + p.gaze.dx + glance + look.dx * 2.6, eyeY + p.gaze.dy + look.dy * 2.6),
+        pupilR,
+        pupil,
+      );
     }
     canvas.restore();
   }
 
   void _paintMonocle(Canvas canvas, _PoseSpec p, bool small) {
     final mx = p.monocle[0];
-    final my = p.monocle[1];
+    // El monóculo brinca un poco más alto que la cabeza y vuelve a su sitio.
+    final my = p.monocle[1] - 5 * _hop;
     final mr = p.monocle[2];
     final paint = Paint()
       ..color = ColorTokens.mascotMonocle
@@ -612,5 +793,8 @@ class _ErizogenesPainter extends CustomPainter {
       old.rim != rim ||
       old.idle != idle ||
       old.aux != aux ||
-      old.blink != blink;
+      old.blink != blink ||
+      old.poke != poke ||
+      old.look != look ||
+      old.petted != petted;
 }

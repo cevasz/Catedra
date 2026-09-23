@@ -24,12 +24,61 @@ void main() {
     verifier = SchemaVerifier(GeneratedHelper());
   });
 
-  test('el esquema en código sigue siendo idéntico al volcado de la v1', () async {
-    final connection = await verifier.startAt(1);
+  test('el esquema en código sigue siendo idéntico al volcado de la v3', () async {
+    final connection = await verifier.startAt(3);
     final db = CatedraDatabase.forTesting(connection);
     addTearDown(db.close);
 
-    await verifier.migrateAndValidate(db, 1);
+    await verifier.migrateAndValidate(db, 3);
+  });
+
+  test('v2 → v3: materias y ajustes intactos, pendientes y alarmas con sus defaults', () async {
+    final schema = await verifier.schemaAt(2);
+    schema.rawDatabase.execute(
+      "INSERT INTO semesters (nombre, fecha_inicio, fecha_fin, activo) VALUES ('S', 0, 0, 1)",
+    );
+    schema.rawDatabase.execute(
+      "INSERT INTO subjects (semester_id, nombre, color_index) VALUES (1, 'Física', 0)",
+    );
+    // Ajustes que la persona ya había tocado: no se pueden perder.
+    schema.rawDatabase.execute('INSERT INTO user_settings (id, buffer_minutos, tema) VALUES (1, 12, 2)');
+
+    final db = CatedraDatabase.forTesting(schema.newConnection());
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(db, 3);
+
+    expect((await db.select(db.subjects).getSingle()).nombre, 'Física');
+    final settings = await db.select(db.userSettings).getSingle();
+    expect(settings.bufferMinutos, 12);
+    expect(settings.tema, 2);
+    expect(settings.mascotaEsquina, isTrue);
+    expect(settings.alarmaDespertarMin, 60);
+    expect(settings.avisoEvaluacionMin, 20 * 60);
+
+    // La tabla nueva existe y acepta un pendiente de la materia de antes.
+    await db.tasksDao.addTask(subjectId: 1, titulo: 'Taller 3');
+    expect(await db.select(db.tasks).get(), hasLength(1));
+  });
+
+  test('v1 → v2: las materias que ya existían quedan activas', () async {
+    final schema = await verifier.schemaAt(1);
+    // Una materia escrita con el esquema viejo, antes de que existiera
+    // «cancelada».
+    schema.rawDatabase.execute(
+      "INSERT INTO semesters (nombre, fecha_inicio, fecha_fin, activo) VALUES ('S', 0, 0, 1)",
+    );
+    schema.rawDatabase.execute(
+      "INSERT INTO subjects (semester_id, nombre, color_index) VALUES (1, 'Física', 0)",
+    );
+
+    final db = CatedraDatabase.forTesting(schema.newConnection());
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(db, 2);
+
+    final subject = await db.select(db.subjects).getSingle();
+    expect(subject.nombre, 'Física');
+    expect(subject.cancelada, isFalse);
+    expect(subject.fechaCancelacion, isNull);
   });
 
   test('una base recién creada nace en la versión declarada', () async {
@@ -39,7 +88,7 @@ void main() {
     // Fuerza la apertura real: sin una consulta, `onCreate` no llega a correr.
     await db.customSelect('SELECT 1').get();
 
-    expect(db.schemaVersion, 1);
+    expect(db.schemaVersion, 3);
   });
 
   test('onCreate deja la fila única de ajustes lista', () async {

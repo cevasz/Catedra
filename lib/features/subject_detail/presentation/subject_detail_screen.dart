@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/db/database.dart';
+import '../../../core/providers.dart';
 import '../../../core/time/minutes_of_day.dart';
 import '../../../l10n/strings.g.dart';
 import '../../../theme/app_theme.dart';
 import '../../../theme/layout.dart';
 import '../../../theme/tokens.g.dart';
+import '../../mascot/mascot_loader.dart';
 import '../../subjects/application/subjects_providers.dart';
+import '../../subjects/presentation/subject_actions.dart';
 import '../../subjects/presentation/subjects_screen.dart';
 import '../application/subject_detail_providers.dart';
 import 'widgets/attendance_tab.dart';
 import 'widgets/grades_tab.dart';
+import 'widgets/tasks_tab.dart';
 
 /// La pantalla de una materia: Notas y Asistencia.
 ///
@@ -39,7 +44,7 @@ class SubjectDetailScreen extends ConsumerWidget {
     final async = ref.watch(subjectDetailProvider(subjectId));
 
     return async.when(
-      loading: () => const Scaffold(body: SizedBox.shrink()),
+      loading: () => const Scaffold(body: MascotLoader()),
       error: (e, _) => Scaffold(body: Center(child: Text('$e'))),
       data: (state) {
         // La materia se borró mientras la pantalla estaba abierta. Se cierra
@@ -61,23 +66,39 @@ class SubjectDetailScreen extends ConsumerWidget {
   }
 }
 
-class _Loaded extends StatelessWidget {
+class _Loaded extends ConsumerWidget {
   const _Loaded({required this.state, required this.embedded});
 
   final SubjectDetailState state;
   final bool embedded;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final b = Theme.of(context).brightness;
     final subject = state.detail.subject;
-    final accent = SubjectPalette.at(subject.colorIndex);
+    // Cancelada, la materia pierde su color: sigue ahí, pero ya no es tuya
+    // esta semana.
+    final accent = subject.cancelada ? ColorTokens.surfaceBorder.of(b) : SubjectPalette.at(subject.colorIndex);
     final wide = context.sizeClass.isExpanded;
 
     final actions = [
-      TextButton(
+      IconButton(
         onPressed: () => openSubjectForm(context, subjectId: subject.id),
-        child: const Text(SSubjectDetail.edit),
+        tooltip: SSubjectDetail.edit,
+        icon: const Icon(Icons.edit_outlined),
+      ),
+      PopupMenuButton<void>(
+        tooltip: SSubjectCancel.menu,
+        itemBuilder: (_) => [
+          PopupMenuItem<void>(
+            onTap: () => toggleSubjectCancelled(context, ref, subject),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(subject.cancelada ? Icons.undo : Icons.block_outlined),
+              title: Text(subject.cancelada ? SSubjectCancel.reactivate : SSubjectCancel.action),
+            ),
+          ),
+        ],
       ),
     ];
 
@@ -99,6 +120,7 @@ class _Loaded extends StatelessWidget {
                 children: [
                   Expanded(child: _Pane(label: SGrades.tab, child: GradesTab(state: state))),
                   Expanded(child: _Pane(label: SAttendance.tab, child: AttendanceTab(state: state))),
+                  Expanded(child: _Pane(label: STasks.tab, child: TasksTab(state: state))),
                 ],
               ),
             ),
@@ -108,7 +130,7 @@ class _Loaded extends StatelessWidget {
     }
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: Text(subject.nombre),
@@ -124,6 +146,7 @@ class _Loaded extends StatelessWidget {
             tabs: const [
               Tab(text: SGrades.tab),
               Tab(text: SAttendance.tab),
+              Tab(text: STasks.tab),
             ],
           ),
         ),
@@ -135,6 +158,7 @@ class _Loaded extends StatelessWidget {
                 children: [
                   GradesTab(state: state),
                   AttendanceTab(state: state),
+                  TasksTab(state: state),
                 ],
               ),
             ),
@@ -170,16 +194,17 @@ class _Pane extends StatelessWidget {
 }
 
 /// Profesor y horario. Es lo que se consulta sin pensar: dónde y con quién.
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header({required this.state, required this.accent});
 
   final SubjectDetailState state;
   final Color accent;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final b = Theme.of(context).brightness;
     final subject = state.detail.subject;
+    final today = ref.watch(todayProvider);
 
     return Container(
       width: double.infinity,
@@ -203,6 +228,10 @@ class _Header extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (subject.cancelada) ...[
+            _CancelledBanner(subject: subject),
+            SizedBox(height: SpaceTokens.m),
+          ],
           Text(
             subject.profesor ?? SSubjectDetail.noProfessor,
             style: context.type(TypeTokens.bodyS),
@@ -225,7 +254,7 @@ class _Header extends StatelessWidget {
           ],
           // La fecha límite para cancelar la materia es un dato que se
           // necesita antes de llegar a la calculadora, no solo dentro de ella.
-          if (subject.fechaLimiteCancelacion != null) ...[
+          if (subject.fechaLimiteCancelacion != null && !subject.cancelada) ...[
             SizedBox(height: SpaceTokens.s),
             Text(
               SCalculator.withdrawDeadline(
@@ -237,7 +266,63 @@ class _Header extends StatelessWidget {
                 color: ColorTokens.accentAttention.of(b),
               ),
             ),
+            SizedBox(height: SpaceTokens.xs),
+            // La cuenta regresiva es lo que la fecha sola no dice.
+            Text(
+              _deadlineCountdown(subject.fechaLimiteCancelacion!, today),
+              style: context.type(TypeTokens.captionS, color: ColorTokens.textTertiary.of(b)),
+            ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+String _deadlineCountdown(DateTime deadline, DateTime today) {
+  final days = DateTime(deadline.year, deadline.month, deadline.day).difference(today).inDays;
+  if (days < 0) return SSubjectCancel.deadlinePassed;
+  if (days == 0) return SSubjectCancel.deadlineToday;
+  return SSubjectCancel.deadlineIn(n: days);
+}
+
+/// «Cancelaste esta materia» con la fecha y la salida para reactivarla.
+class _CancelledBanner extends ConsumerWidget {
+  const _CancelledBanner({required this.subject});
+  final Subject subject;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final b = Theme.of(context).brightness;
+    final when = subject.fechaCancelacion;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(SpaceTokens.m),
+      decoration: BoxDecoration(
+        color: ColorTokens.surfaceRaised.of(b),
+        borderRadius: BorderRadius.circular(RadiusTokens.control),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.block_outlined, size: IconTokens.sizeM, color: ColorTokens.textSecondary.of(b)),
+          SizedBox(width: SpaceTokens.s),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(SSubjectCancel.banner, style: context.type(TypeTokens.bodyM)),
+                if (when != null)
+                  Text(
+                    SSubjectCancel.since(fecha: DateFormat("d 'de' MMMM", 'es_CO').format(when)),
+                    style: context.type(TypeTokens.captionS, color: ColorTokens.textTertiary.of(b)),
+                  ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => toggleSubjectCancelled(context, ref, subject),
+            child: const Text(SSubjectCancel.reactivate),
+          ),
         ],
       ),
     );

@@ -8,12 +8,15 @@ import '../../../theme/cascade.dart';
 import '../../../theme/layout.dart';
 import '../../../theme/micro_animations.dart';
 import '../../../theme/motion.dart';
+import '../../../theme/strike_through.dart';
 import '../../../theme/tokens.g.dart';
 import '../../../theme/transitions.dart';
 import '../../import/presentation/import_pdf_screen.dart';
+import '../../mascot/mascot_loader.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../subject_detail/presentation/subject_detail_screen.dart';
 import '../application/subjects_providers.dart';
+import 'subject_actions.dart';
 import 'subject_form_screen.dart';
 
 /// La pestaña Materias: todo el semestre en una lista.
@@ -100,7 +103,7 @@ class _ListScaffold extends StatelessWidget {
               label: const Text(SSubjects.addSubject),
             ),
       body: subjects.when(
-        loading: () => const SizedBox.shrink(),
+        loading: () => const MascotLoader(),
         error: (e, _) => _Failure(error: e),
         data: (list) => list.isEmpty
             ? const _Empty()
@@ -128,6 +131,11 @@ class _List extends StatelessWidget {
   Widget build(BuildContext context) {
     final guard = MotionGuard.of(context);
     final b = Theme.of(context).brightness;
+    // Las canceladas llegan al final (así las ordena el DAO). El conteo del
+    // semestre es de las que sigues cursando.
+    final active = subjects.where((c) => !c.subject.cancelada).toList();
+    final cancelled = subjects.where((c) => c.subject.cancelada).toList();
+    final rows = <Object>[...active, if (cancelled.isNotEmpty) _cancelledLabel, ...cancelled];
 
     return ListView.separated(
       padding: EdgeInsets.fromLTRB(
@@ -137,7 +145,7 @@ class _List extends StatelessWidget {
         // Espacio para que el FAB no tape la última tarjeta.
         SpaceTokens.xxxl * 2,
       ),
-      itemCount: subjects.length + 1,
+      itemCount: rows.length + 1,
       separatorBuilder: (_, __) => SizedBox(height: SpaceTokens.cardGap),
       itemBuilder: (context, i) {
         if (i == 0) {
@@ -146,7 +154,7 @@ class _List extends StatelessWidget {
           // estático: solo el entero salta.
           return Padding(
             padding: EdgeInsets.only(bottom: SpaceTokens.xs),
-            child: subjects.length == 1
+            child: active.length == 1
                 ? Text(
                     SSubjects.countOne,
                     style: context.type(
@@ -158,7 +166,7 @@ class _List extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       NumberRollIn(
-                        value: subjects.length,
+                        value: active.length,
                         style: context.type(
                           TypeTokens.bodyM,
                           color: ColorTokens.textTertiary.of(b),
@@ -167,8 +175,8 @@ class _List extends StatelessWidget {
                       Text(
                         // El string completo es «N materias»; quitamos el número
                         // del inicio para que NumberRollIn lo anime solo.
-                        SSubjects.count(n: subjects.length)
-                            .replaceFirst('${subjects.length}', ''),
+                        SSubjects.count(n: active.length)
+                            .replaceFirst('${active.length}', ''),
                         style: context.type(
                           TypeTokens.bodyM,
                           color: ColorTokens.textTertiary.of(b),
@@ -178,7 +186,17 @@ class _List extends StatelessWidget {
                   ),
           );
         }
-        final card = subjects[i - 1];
+        final row = rows[i - 1];
+        if (row is! SubjectCard) {
+          return Padding(
+            padding: EdgeInsets.only(top: SpaceTokens.l),
+            child: Text(
+              SSubjectCancel.sectionLabel,
+              style: context.type(TypeTokens.label, color: ColorTokens.textTertiary.of(b)),
+            ),
+          );
+        }
+        final card = row;
         return CascadeIn(
           index: i - 1,
           guard: guard,
@@ -188,6 +206,9 @@ class _List extends StatelessWidget {
     );
   }
 }
+
+/// Marca de la sección de canceladas dentro de la lista mixta de filas.
+const Object _cancelledLabel = 'cancelled-label';
 
 class _SubjectTile extends ConsumerWidget {
   const _SubjectTile({required this.card, required this.selected});
@@ -200,8 +221,11 @@ class _SubjectTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final b = Theme.of(context).brightness;
-    final accent = SubjectPalette.at(card.subject.colorIndex);
-    final semaphore = SemaphoreTokens.color[card.tally.state]!.of(b);
+    final cancelled = card.subject.cancelada;
+    final accent = cancelled ? ColorTokens.surfaceBorder.of(b) : SubjectPalette.at(card.subject.colorIndex);
+    final semaphore = cancelled
+        ? ColorTokens.textTertiary.of(b)
+        : SemaphoreTokens.color[card.tally.state]!.of(b);
 
     // PressScaleButton con escala 0.97: las filas de lista usan menos compresión
     // que los botones de acción (0.96) para no parecer que «aplastas» la fila.
@@ -212,6 +236,7 @@ class _SubjectTile extends ConsumerWidget {
         borderRadius: BorderRadius.circular(RadiusTokens.card),
         child: InkWell(
           borderRadius: BorderRadius.circular(RadiusTokens.card),
+          onLongPress: () => showSubjectQuickActions(context, ref, card.subject),
           onTap: () {
             if (context.sizeClass.isExpanded) {
               ref.read(selectedSubjectProvider.notifier).state = card.subject.id;
@@ -249,7 +274,23 @@ class _SubjectTile extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(card.subject.nombre, style: context.type(TypeTokens.titleS)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: StrikeThrough(
+                        struck: cancelled,
+                        guard: MotionGuard.of(context),
+                        color: ColorTokens.textPrimary.of(b),
+                        struckColor: ColorTokens.textSecondary.of(b),
+                        child: Text(card.subject.nombre, style: context.type(TypeTokens.titleS)),
+                      ),
+                    ),
+                    if (cancelled) ...[
+                      SizedBox(width: SpaceTokens.s),
+                      _Badge(text: SSubjectCancel.badge),
+                    ],
+                  ],
+                ),
                 SizedBox(height: SpaceTokens.xs),
                 Text(
                   [
@@ -296,6 +337,28 @@ class _SubjectTile extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Insignia de estado, en hairline: informa sin gritar.
+class _Badge extends StatelessWidget {
+  const _Badge({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = context.themed(ColorTokens.textSecondary);
+    return Container(
+      padding: EdgeInsets.symmetric(
+        vertical: SpaceTokens.xs / 2,
+        horizontal: SpaceTokens.s,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(RadiusTokens.full),
+        border: Border.all(color: color, width: BorderTokens.hairline),
+      ),
+      child: Text(text, style: context.type(TypeTokens.label, color: color)),
     );
   }
 }

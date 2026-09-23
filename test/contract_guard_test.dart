@@ -28,6 +28,10 @@ const _exemptions = <String, String>{
   // red, que no es movimiento y no tiene por qué estar en el contrato visual.
   'lib/features/import/data/claude_schedule_parser.dart':
       'Cliente HTTP: el timeout de red no es una animación',
+  // Escribe los datos de los widgets nativos. Su única duración es la espera
+  // para agrupar escrituras seguidas, que tampoco es movimiento.
+  'lib/features/widgets/home_widget_sync.dart':
+      'Debounce de escritura a disco: no es una animación',
 };
 
 /// Cada regla es un patrón y el nombre de lo que protege.
