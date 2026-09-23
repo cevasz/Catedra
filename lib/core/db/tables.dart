@@ -157,6 +157,11 @@ class UserSettings extends Table {
   /// del modo de transporte (`DeparturePlanner.fallbackTravelMinutes`).
   IntColumn get trayectoMinutos => integer().nullable()();
   TextColumn get direccionCasa => text().nullable()();
+
+  /// Si la app comprueba, 15 min después de empezar cada clase, si sigues en
+  /// casa, y en ese caso anota la falta. Apagado hasta que la persona lo
+  /// active: necesita ubicación «todo el tiempo».
+  BoolColumn get detectarCasa => boolean().withDefault(const Constant(false))();
   RealColumn get homeLat => real().nullable()();
   RealColumn get homeLng => real().nullable()();
 

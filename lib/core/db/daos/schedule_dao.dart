@@ -197,6 +197,12 @@ class ScheduleDao extends DatabaseAccessor<CatedraDatabase> with _$ScheduleDaoMi
     );
   }
 
+  /// El estado de una sesión, o null si ya no existe (se borró la materia).
+  Future<SessionStatus?> statusOf(int instanceId) async {
+    final row = await (select(sessionInstances)..where((t) => t.id.equals(instanceId))).getSingleOrNull();
+    return row?.estado;
+  }
+
   /// Deshacer devuelve la sesión a pendiente y borra la marca de tiempo.
   Future<void> clearStatus(int instanceId) {
     return (update(sessionInstances)..where((t) => t.id.equals(instanceId))).write(

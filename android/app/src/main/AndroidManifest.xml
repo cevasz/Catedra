@@ -2,10 +2,13 @@
     <!-- Red: los mosaicos del mapa (OpenStreetMap) y, solo si hay clave de
          API, el texto del horario hacia la API de Claude. -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- Ubicación: solo en primer plano y solo cuando tocas «Mi ubicación» en
-         el mapa. Nunca en segundo plano. -->
+    <!-- Ubicación: en primer plano al tocar «Mi ubicación» o «Mi casa es
+         aquí». En segundo plano solo si activas «Anotar falta si sigo en
+         casa» en Ajustes: una comprobación por clase, 15 min después de su
+         inicio. Android pide «Permitir todo el tiempo» aparte. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
     <!-- Los widgets se actualizan a la hora de salir y al empezar y terminar
          cada clase; las alarmas tienen que sobrevivir a un reinicio. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -42,6 +45,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- «¿Sigues en casa?»: la comprobación, el «Sí fui» de la
+             notificación y el rearmado tras reiniciar. -->
+        <receiver android:name=".AttendanceCheckReceiver" android:exported="false"/>
+        <receiver android:name=".AttendanceUndoReceiver" android:exported="false"/>
+        <receiver android:name=".AttendanceBootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+            </intent-filter>
+        </receiver>
         <!-- Comparte con el instalador solo el APK descargado en cache/updates. -->
         <provider
             android:name="androidx.core.content.FileProvider"

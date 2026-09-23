@@ -54,6 +54,7 @@ const _settings = UserSetting(
   alarmaSalir: true,
   alarmaEvaluaciones: true,
   avisoEvaluacionMin: 20 * 60,
+  detectarCasa: false,
 );
 
 /// Monta el provider de Hoy con clases, hora y ajustes fijos. Nada toca la BD.

@@ -31,6 +31,14 @@ class SettingsDao extends DatabaseAccessor<CatedraDatabase> with _$SettingsDaoMi
         UserSettingsCompanion(modoTransporte: Value(mode)),
       );
 
+  /// Dónde está la casa: el punto desde el que se sale y en el que «seguir
+  /// en casa» cuenta como falta. Solo se guarda en el teléfono.
+  Future<void> setHome(double lat, double lng) => _write(
+        UserSettingsCompanion(homeLat: Value(lat), homeLng: Value(lng)),
+      );
+
+  Future<void> setDetectHome(bool on) => _write(UserSettingsCompanion(detectarCasa: Value(on)));
+
   /// Null vuelve al estimado del modo de transporte.
   Future<void> setTravelMinutes(int? minutos) => _write(
         UserSettingsCompanion(trayectoMinutos: Value(minutos)),

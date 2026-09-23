@@ -910,6 +910,33 @@ una clase de 11:00 a 13:00.
 - **El modo real:** la línea de llegada dice «a pie», «en bus» o «en carro»
   según Ajustes; antes decía «a pie» siempre.
 
+## 45. Anotar falta si sigues en casa
+
+**Pedido del usuario (2026-09-23):** «si detecta que no he salido de la casa
+después de cierta hora (casi todas las clases permiten llegar 15 minutos
+después sin falla), que ponga falla y pase a la otra». Revierte la regla de
+«ubicación nunca en segundo plano», así que es opcional y viene apagado.
+
+- **Cuándo:** al acabar la tolerancia de cada sesión pendiente
+  (`HomeCheck.checkAt` = inicio + 15 min), con la app cerrada:
+  `AttendanceChecks.kt` programa una alarma inexacta por sesión (hoy y
+  mañana, reprogramadas al abrir la app y rearmadas tras reiniciar).
+- **Qué:** pide una ubicación (actual con tope de 20 s, o la última si es de
+  hace menos de 15 min). Si estás a menos de `HomeCheck.radiusMeters` (200 m)
+  de casa y el error es menor que `maxAccuracyMeters` (250 m), deja el
+  veredicto «falto» en cola y notifica «Falta anotada: {clase}» con **Sí
+  fui**, que lo deshace. Sin permiso, sin casa o sin una ubicación fiable no
+  anota nada: mejor no anotar una falta que anotarla mal.
+- **Quién escribe en la BD:** la app, al abrirse o volver al frente
+  (`HomeCheck.apply`): una falta automática solo pisa una sesión sin
+  resolver; «Sí fui» la convierte en asistencia. Si anotó alguna, Erizógenes
+  lo comenta en la esquina. Con la falta, Hoy pasa a la siguiente clase y el
+  trayecto vuelve a contar desde casa (§44).
+- **Ajustes → Mi casa y asistencia:** «Mi casa es aquí» guarda el punto (solo
+  en el teléfono) y el interruptor. Android 11+ no pregunta «Permitir todo el
+  tiempo» en un diálogo: la sección lo avisa y abre los permisos.
+- Columna `detectarCasa` en la v5 del esquema, apagada para todos.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura

@@ -24,12 +24,35 @@ void main() {
     verifier = SchemaVerifier(GeneratedHelper());
   });
 
-  test('el esquema en código sigue siendo idéntico al volcado de la v4', () async {
-    final connection = await verifier.startAt(4);
+  test('el esquema en código sigue siendo idéntico al volcado de la v5', () async {
+    final connection = await verifier.startAt(5);
     final db = CatedraDatabase.forTesting(connection);
     addTearDown(db.close);
 
-    await verifier.migrateAndValidate(db, 4);
+    await verifier.migrateAndValidate(db, 5);
+  });
+
+  test('v4 → v5: «anotar falta si sigo en casa» nace apagado y la casa se queda', () async {
+    final schema = await verifier.schemaAt(4);
+    schema.rawDatabase.execute(
+      'INSERT INTO user_settings (id, trayecto_minutos, home_lat, home_lng) VALUES (1, 30, 4.6, -74.06)',
+    );
+    final db = CatedraDatabase.forTesting(schema.newConnection());
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(db, 5);
+
+    final s = await db.settingsDao.get();
+    expect(s.detectarCasa, isFalse);
+    expect(s.trayectoMinutos, 30);
+    expect(s.homeLat, 4.6);
+    await db.settingsDao.setDetectHome(true);
+    expect((await db.settingsDao.get()).detectarCasa, isTrue);
+
+    // Y los setters de las versiones recientes funcionan sobre lo migrado.
+    await db.settingsDao.setTravelMinutes(null);
+    expect((await db.settingsDao.get()).trayectoMinutos, isNull);
+    await db.settingsDao.setHome(4.7, -74.1);
+    expect((await db.settingsDao.get()).homeLng, -74.1);
   });
 
   test('v3 → v4: el trayecto nace vacío y los ajustes de antes se quedan', () async {
@@ -42,14 +65,11 @@ void main() {
     addTearDown(db.close);
     await verifier.migrateAndValidate(db, 4);
 
-    final settings = await db.select(db.userSettings).getSingle();
-    expect(settings.bufferMinutos, 10);
-    expect(settings.trayectoMinutos, isNull, reason: 'sin medirlo, sigue el estimado del modo');
-
-    await db.settingsDao.setTravelMinutes(30);
-    expect((await db.settingsDao.get()).trayectoMinutos, 30);
-    await db.settingsDao.setTravelMinutes(null);
-    expect((await db.settingsDao.get()).trayectoMinutos, isNull);
+    // Se lee con SQL: la tabla del código ya es la de la última versión y
+    // trae columnas que en la v4 todavía no existen.
+    final row = await db.customSelect('SELECT buffer_minutos, trayecto_minutos FROM user_settings').getSingle();
+    expect(row.read<int>('buffer_minutos'), 10);
+    expect(row.read<int?>('trayecto_minutos'), isNull, reason: 'sin medirlo, sigue el estimado del modo');
   });
 
   test('v2 → v3: materias y ajustes intactos, pendientes y alarmas con sus defaults', () async {
@@ -68,12 +88,17 @@ void main() {
     await verifier.migrateAndValidate(db, 3);
 
     expect((await db.select(db.subjects).getSingle()).nombre, 'Física');
-    final settings = await db.select(db.userSettings).getSingle();
-    expect(settings.bufferMinutos, 12);
-    expect(settings.tema, 2);
-    expect(settings.mascotaEsquina, isTrue);
-    expect(settings.alarmaDespertarMin, 60);
-    expect(settings.avisoEvaluacionMin, 20 * 60);
+    // Con SQL, por lo mismo: columnas de la v3, no de la última.
+    final row = await db
+        .customSelect(
+          'SELECT buffer_minutos, tema, mascota_esquina, alarma_despertar_min, aviso_evaluacion_min FROM user_settings',
+        )
+        .getSingle();
+    expect(row.read<int>('buffer_minutos'), 12);
+    expect(row.read<int>('tema'), 2);
+    expect(row.read<bool>('mascota_esquina'), isTrue);
+    expect(row.read<int>('alarma_despertar_min'), 60);
+    expect(row.read<int>('aviso_evaluacion_min'), 20 * 60);
 
     // La tabla nueva existe y acepta un pendiente de la materia de antes.
     await db.tasksDao.addTask(subjectId: 1, titulo: 'Taller 3');
@@ -108,7 +133,7 @@ void main() {
     // Fuerza la apertura real: sin una consulta, `onCreate` no llega a correr.
     await db.customSelect('SELECT 1').get();
 
-    expect(db.schemaVersion, 4);
+    expect(db.schemaVersion, 5);
   });
 
   test('onCreate deja la fila única de ajustes lista', () async {

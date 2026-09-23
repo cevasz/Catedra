@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../core/db/database.dart';
 import '../../../core/format/durations.dart';
@@ -13,6 +14,7 @@ import '../../../theme/haptics.dart';
 import '../../../theme/layout.dart';
 import '../../../theme/tokens.g.dart';
 import '../../alarms/application/alarms_controller.dart';
+import '../../home_check/application/home_check_providers.dart';
 import '../../mascot/application/mascot_voice.dart';
 import '../../mascot/mascot_error.dart';
 import '../../mascot/mascot_loader.dart';
@@ -170,6 +172,9 @@ class _Loaded extends ConsumerWidget {
         SizedBox(height: SpaceTokens.xl),
         const _SectionLabel(SAlarms.section),
         _AlarmsCard(settings: settings),
+        SizedBox(height: SpaceTokens.xl),
+        const _SectionLabel(SHomeCheck.section),
+        _HomeCheckCard(settings: settings),
         SizedBox(height: SpaceTokens.xl),
         const _SectionLabel(SUpdates.section),
         const _UpdatesCard(),
@@ -478,6 +483,104 @@ class _UpdatesCard extends ConsumerWidget {
                   child: const Text(SUpdates.check),
                 ),
         ),
+      ],
+    );
+  }
+}
+
+/// Dónde está la casa y si Cátedra anota la falta cuando sigues en ella
+/// pasada la tolerancia. La ubicación de casa solo vive en el teléfono.
+class _HomeCheckCard extends ConsumerStatefulWidget {
+  const _HomeCheckCard({required this.settings});
+
+  final UserSetting settings;
+
+  @override
+  ConsumerState<_HomeCheckCard> createState() => _HomeCheckCardState();
+}
+
+class _HomeCheckCardState extends ConsumerState<_HomeCheckCard> {
+  bool _locating = false;
+
+  void _say(String text) =>
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text)));
+
+  Future<void> _setHome() async {
+    setState(() => _locating = true);
+    try {
+      var p = await Geolocator.checkPermission();
+      if (p == LocationPermission.denied) p = await Geolocator.requestPermission();
+      if (p == LocationPermission.denied || p == LocationPermission.deniedForever) {
+        _say(SHomeCheck.locationFailed);
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      await ref.read(settingsDaoProvider).setHome(pos.latitude, pos.longitude);
+    } on Object {
+      _say(SHomeCheck.locationFailed);
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  Future<void> _toggle(bool on) async {
+    final dao = ref.read(settingsDaoProvider);
+    if (!on) {
+      await dao.setDetectHome(false);
+      return;
+    }
+    if (widget.settings.homeLat == null) {
+      _say(SHomeCheck.needHome);
+      return;
+    }
+    await dao.setDetectHome(true);
+    // La notificación de «Falta anotada» necesita permiso en Android 13+.
+    await ref.read(alarmChannelProvider).requestNotifications();
+    // Android 11+ no pregunta «todo el tiempo» en un diálogo: hay que ir a
+    // los permisos de la app. Primero se pide el de primer plano.
+    final p = await Geolocator.requestPermission();
+    if (p != LocationPermission.always) ref.invalidate(backgroundLocationProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.settings;
+    final hasHome = s.homeLat != null && s.homeLng != null;
+    final always = ref.watch(backgroundLocationProvider).valueOrNull ?? false;
+    final b = Theme.of(context).brightness;
+
+    return _Card(
+      children: [
+        _Row(
+          title: SHomeCheck.home,
+          subtitle: _locating ? SHomeCheck.locating : (hasHome ? SHomeCheck.homeSet : SHomeCheck.homeUnset),
+          trailing: TextButton(
+            onPressed: _locating ? null : _setHome,
+            child: const Text(SHomeCheck.setHome),
+          ),
+        ),
+        SizedBox(height: SpaceTokens.m),
+        _Row(
+          title: SHomeCheck.detect,
+          subtitle: SHomeCheck.detectHint,
+          trailing: Switch(value: s.detectarCasa, onChanged: _toggle),
+        ),
+        if (s.detectarCasa && !always) ...[
+          SizedBox(height: SpaceTokens.s),
+          Text(
+            SHomeCheck.needAlways,
+            style: context.type(TypeTokens.captionS, color: ColorTokens.accentAttention.of(b)),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: Geolocator.openAppSettings,
+              child: const Text(SHomeCheck.openSettings),
+            ),
+          ),
+        ],
       ],
     );
   }

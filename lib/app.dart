@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/providers.dart';
 import 'features/alarms/application/alarms_controller.dart';
+import 'features/home_check/application/home_check_providers.dart';
 import 'features/import/presentation/onboarding_screen.dart';
 import 'features/mascot/mascot_corner.dart';
 import 'features/shell/presentation/app_shell.dart';
@@ -22,6 +23,10 @@ class CatedraApp extends ConsumerWidget {
     ref.watch(homeWidgetSyncProvider);
     // Y los avisos de la víspera de cada evaluación.
     ref.watch(evalRemindersSyncProvider);
+    // Y «¿sigues en casa?»: programar las comprobaciones y aplicar lo que
+    // Android decidió con la app cerrada.
+    ref.watch(homeCheckSyncProvider);
+    ref.watch(homeCheckVerdictsProvider);
     return MaterialApp(
       title: SOnboarding.brand,
       debugShowCheckedModeBanner: false,

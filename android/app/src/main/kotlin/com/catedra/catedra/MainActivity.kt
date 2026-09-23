@@ -43,6 +43,17 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "catedra/attendance").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "schedule" -> {
+                    AttendanceChecks.schedule(this, org.json.JSONObject(call.arguments as Map<*, *>))
+                    result.success(true)
+                }
+                "takeVerdicts" -> result.success(AttendanceChecks.takeVerdicts(this))
+                "hasBackgroundLocation" -> result.success(AttendanceChecks.hasBackgroundLocation(this))
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "catedra/updates").setMethodCallHandler { call, result ->
             when (call.method) {
                 "version" -> result.success(installedVersion())

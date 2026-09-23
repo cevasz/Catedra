@@ -40,7 +40,7 @@ class CatedraDatabase extends _$CatedraDatabase {
   CatedraDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -80,6 +80,11 @@ class CatedraDatabase extends _$CatedraDatabase {
           // tenían la app: siguen con el estimado del modo hasta que lo pongan.
           from3To4: (m, schema) async {
             await m.addColumn(schema.userSettings, schema.userSettings.trayectoMinutos);
+          },
+          // v5: anotar falta si sigues en casa. Apagado para todos: se activa
+          // a mano porque pide ubicación en segundo plano.
+          from4To5: (m, schema) async {
+            await m.addColumn(schema.userSettings, schema.userSettings.detectarCasa);
           },
         ),
         beforeOpen: (details) async {
