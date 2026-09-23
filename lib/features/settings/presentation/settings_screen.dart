@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/database.dart';
+import '../../../core/format/durations.dart';
 import '../../../core/providers.dart';
 import '../../../domain/alarms/alarm_planner.dart';
 import '../../../domain/attendance/attendance.dart';
@@ -125,8 +126,8 @@ class _Loaded extends ConsumerWidget {
                     )
                   : SSettings.travelHint,
               trailing: Text(
-                SSettings.bufferUnit(
-                  n: DeparturePlanner.travelMinutesFor(settings.modoTransporte, settings.trayectoMinutos),
+                TimeSpans.minutes(
+                  DeparturePlanner.travelMinutesFor(settings.modoTransporte, settings.trayectoMinutos),
                 ),
                 style: context.type(TypeTokens.titleS),
               ),
@@ -267,7 +268,7 @@ class _AlarmsCardState extends ConsumerState<_AlarmsCard> {
         SizedBox(height: SpaceTokens.m),
         _Row(
           title: SAlarms.wake,
-          subtitle: SAlarms.wakeDesc(n: s.alarmaDespertarMin),
+          subtitle: SAlarms.wakeDesc(dur: TimeSpans.minutes(s.alarmaDespertarMin)),
           trailing: Switch(value: s.alarmaDespertar, onChanged: dao.setWakeAlarm),
         ),
         if (s.alarmaDespertar)
@@ -276,7 +277,7 @@ class _AlarmsCardState extends ConsumerState<_AlarmsCard> {
             min: AlarmPlanner.minWakeMinutes.toDouble(),
             max: AlarmPlanner.maxWakeMinutes.toDouble(),
             divisions: (AlarmPlanner.maxWakeMinutes - AlarmPlanner.minWakeMinutes) ~/ AlarmPlanner.wakeStep,
-            label: SAlarms.minutes(n: s.alarmaDespertarMin),
+            label: SAlarms.minutes(dur: TimeSpans.minutes(s.alarmaDespertarMin)),
             onChanged: (v) => dao.setWakeMinutes(v.round()),
           ),
         SizedBox(height: SpaceTokens.s),

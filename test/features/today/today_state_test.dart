@@ -87,6 +87,46 @@ void main() {
       expect(s.isDone, isFalse);
     });
 
+    test('una clase que empezó hace más que la tolerancia ya no es «a la que hay que ir»', () async {
+      // Lo que se vio en el teléfono: a las 12:30, «Ya. Camina.» para una
+      // clase de 11:00 a 13:00.
+      final s = await _state(
+        [_clase(id: 1, inicio: 660, fin: 780), _clase(id: 2, inicio: 840, fin: 960)],
+        hour: 12,
+        minute: 30,
+      );
+      expect(s.next?.instance.id, 2);
+    });
+
+    test('dentro de la tolerancia todavía se va, tarde pero se entra', () async {
+      final s = await _state([_clase(id: 1, inicio: 660, fin: 780)], hour: 11, minute: 10);
+      expect(s.next?.instance.id, 1);
+      expect(s.plan!.toleranceEnd.raw, 660 + DeparturePlanner.lateToleranceMinutes);
+    });
+
+    test('una falta (marcada o detectada) no se persigue', () async {
+      final s = await _state(
+        [
+          _clase(id: 1, inicio: 660, fin: 780, estado: SessionStatus.posibleFalta),
+          _clase(id: 2, inicio: 840, fin: 960),
+        ],
+        hour: 10,
+        minute: 0,
+      );
+      expect(s.next?.instance.id, 2);
+    });
+
+    test('tras una clase a la que fuiste, la siguiente cercana no pide salir de casa', () async {
+      final s = await _state(
+        [_clase(id: 1, inicio: 420, fin: 540), _clase(id: 2, inicio: 660, fin: 780)],
+        hour: 9,
+        minute: 30,
+      );
+      expect(s.next?.instance.id, 2);
+      expect(s.plan!.fromHome, isFalse);
+      expect(s.plan!.travelMinutes, 0);
+    });
+
     test('una cancelada se salta y queda como noticia hasta su hora de fin', () async {
       final s = await _state(
         [

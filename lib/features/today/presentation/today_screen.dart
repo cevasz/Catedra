@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/format/durations.dart';
 import '../../../core/db/daos/schedule_dao.dart';
 import '../../../core/providers.dart';
 import '../../../core/time/minutes_of_day.dart';
@@ -355,7 +356,8 @@ class _NextClassCard extends ConsumerWidget {
                           color: urgent ? ColorTokens.accentUrgent.of(b) : ColorTokens.textPrimary.of(b),
                         ),
                         Text(
-                          SToday.countdownUnit,
+                          // «min» debajo de los minutos; «h» cuando ya son horas.
+                          TimeSpans.compact(plan.minutesUntilLeave).unit,
                           style: context.type(
                             TypeTokens.captionS,
                             color: ColorTokens.textSecondary.of(b),
@@ -385,7 +387,7 @@ class _NextClassCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      urgent ? SToday.urgentHeadline : SToday.leaveIn(n: plan.minutesUntilLeave),
+                      urgent ? SToday.urgentHeadline : SToday.leaveIn(dur: TimeSpans.minutes(plan.minutesUntilLeave)),
                       style: context.type(
                         TypeTokens.titleM,
                         color: urgent ? ColorTokens.accentUrgent.of(b) : ColorTokens.textPrimary.of(b),
@@ -402,7 +404,7 @@ class _NextClassCard extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      _etaLine(plan),
+                      _etaLine(plan, MinutesOfDay.of(state.now.hour, state.now.minute)),
                       style: context.type(
                         TypeTokens.bodyM,
                         color: ColorTokens.textSecondary.of(b),
@@ -459,12 +461,23 @@ class _NextClassCard extends ConsumerWidget {
     return code == null ? hora : SToday.roomLine(code: code, hora: hora);
   }
 
-  /// El microcopy del prototipo es «a pie». En bus o carro se dice igual con
-  /// el tiempo del modo: no hay texto del prototipo para ellos y el número es
-  /// lo que importa.
-  static String _etaLine(DeparturePlan plan) => plan.isUrgent
-      ? SToday.walkEtaTight(n: plan.travelMinutes)
-      : SToday.walkEta(n: plan.travelMinutes, m: plan.arrivalMargin);
+  /// Cómo llegas: el trayecto con el modo real («30 min en bus»), o «Ya
+  /// estás en la U» si vienes de una clase anterior. Pasada la hora de
+  /// inicio, hasta cuándo te dejan entrar.
+  static String _etaLine(DeparturePlan plan, MinutesOfDay now) {
+    if (now >= plan.classStart) return SToday.lateWithinTolerance(hora: plan.toleranceEnd.hhmm);
+    final margin = TimeSpans.minutes(plan.arrivalMargin);
+    if (!plan.fromHome) {
+      return plan.isUrgent ? SToday.fromCampusTight : SToday.fromCampus(m: margin);
+    }
+    final modo = switch (plan.mode) {
+      TransportMode.walk => SToday.byWalk,
+      TransportMode.bus => SToday.byBus,
+      TransportMode.car => SToday.byCar,
+    };
+    final dur = TimeSpans.minutes(plan.travelMinutes);
+    return plan.isUrgent ? SToday.walkEtaTight(dur: dur, modo: modo) : SToday.walkEta(dur: dur, modo: modo, m: margin);
+  }
 
   /// El anillo se vacía a medida que se consume el margen. La ventana sale del
   /// contrato y el cálculo del dominio; aquí solo se conectan.
@@ -510,7 +523,7 @@ class _CancelledCard extends ConsumerWidget {
             children: [
               if (ago != null)
                 Text(
-                  SCancelled.markedAgo(n: ago),
+                  SCancelled.markedAgo(dur: TimeSpans.minutes(ago)),
                   style: context.type(TypeTokens.captionS, color: ColorTokens.textTertiary.of(b)),
                 ),
               const Spacer(),

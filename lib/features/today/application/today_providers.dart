@@ -99,6 +99,7 @@ final todayStateProvider = Provider<AsyncValue<TodayState>>((ref) {
               bufferMinutes:
                   settings?.bufferMinutos ?? DeparturePlanner.defaultBufferMinutes,
               mode: mode,
+              fromHome: _fromHome(list, next, DeparturePlanner.travelMinutesFor(mode, settings?.trayectoMinutos)),
             ),
     );
   });
@@ -109,13 +110,42 @@ final todayStateProvider = Provider<AsyncValue<TodayState>>((ref) {
 /// Una cancelada por el profe se salta: no tiene sentido avisar que salgas a
 /// una clase que no existe. Una ya marcada como asistida también: si dijiste
 /// «ya voy», la alerta ya cumplió y lo que sigue es la de después.
+///
+/// Una clase deja de serlo al pasar su inicio más la tolerancia
+/// ([DeparturePlanner.lateToleranceMinutes]): a una clase que empezó hace
+/// hora y media ya no se le dice «Ya. Camina.». Una falta (marcada o
+/// detectada) tampoco: ya se sabe que no fuiste.
 DayClass? _nextClass(List<DayClass> list, MinutesOfDay now) {
   for (final c in list) {
-    if (c.status == SessionStatus.canceladaProfe) continue;
+    if (_skipped(c.status)) continue;
     if (c.status == SessionStatus.asistio) continue;
-    if (MinutesOfDay(c.session.horaFin) > now) return c;
+    if (MinutesOfDay(c.session.horaInicio).plus(DeparturePlanner.lateToleranceMinutes) > now) return c;
   }
   return null;
+}
+
+/// Clases a las que no fuiste o que no hubo: no te dejan en la U.
+bool _skipped(SessionStatus s) =>
+    s == SessionStatus.canceladaProfe ||
+    s == SessionStatus.falto ||
+    s == SessionStatus.justificada ||
+    s == SessionStatus.posibleFalta;
+
+/// ¿Sales de casa hacia [next]? Si antes hubo una clase de hoy a la que (se
+/// supone) fuiste y el hueco no da para volver a casa, ya estás en la U.
+bool _fromHome(List<DayClass> list, DayClass? next, int travel) {
+  if (next == null) return true;
+  final start = MinutesOfDay(next.session.horaInicio);
+  DayClass? previous;
+  for (final c in list) {
+    if (identical(c, next) || MinutesOfDay(c.session.horaInicio) >= start) break;
+    if (!_skipped(c.status)) previous = c;
+  }
+  return DeparturePlanner.leavesFromHome(
+    previousEnd: previous == null ? null : MinutesOfDay(previous.session.horaFin),
+    start: start,
+    travelMinutes: travel,
+  );
 }
 
 /// La cancelada que todavía estaría en curso o por venir. Pasada su hora de

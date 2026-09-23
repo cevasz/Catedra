@@ -100,6 +100,40 @@ void main() {
       expect(p.leaveAt, MinutesOfDay.of(7, 25));
     });
 
+    test('se sale de casa en la primera clase o si el hueco da para volver', () {
+      expect(DeparturePlanner.leavesFromHome(previousEnd: null, start: MinutesOfDay.of(7, 0), travelMinutes: 30), isTrue);
+      // 9:00 → 11:00: dos horas, pero ir, estar una hora y volver pide 2 h.
+      expect(
+        DeparturePlanner.leavesFromHome(
+          previousEnd: MinutesOfDay.of(9, 0),
+          start: MinutesOfDay.of(11, 0),
+          travelMinutes: 30,
+        ),
+        isTrue,
+      );
+      expect(
+        DeparturePlanner.leavesFromHome(
+          previousEnd: MinutesOfDay.of(9, 0),
+          start: MinutesOfDay.of(10, 30),
+          travelMinutes: 30,
+        ),
+        isFalse,
+      );
+    });
+
+    test('desde la U solo cuenta el margen', () {
+      final p = DeparturePlanner.plan(
+        classStart: MinutesOfDay.of(14, 0),
+        now: MinutesOfDay.of(12, 0),
+        travelMinutes: 30,
+        bufferMinutes: 5,
+        mode: TransportMode.walk,
+        fromHome: false,
+      );
+      expect(p.leaveAt, MinutesOfDay.of(13, 55));
+      expect(p.travelMinutes, 0);
+    });
+
     test('el buffer por defecto es el mismo que el de UserSettings', () {
       expect(DeparturePlanner.defaultBufferMinutes, 5);
     });

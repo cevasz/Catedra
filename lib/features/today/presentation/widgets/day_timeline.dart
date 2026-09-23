@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/format/durations.dart';
 import '../../../../core/db/daos/schedule_dao.dart';
 import '../../../../core/time/minutes_of_day.dart';
 import '../../../../domain/attendance/attendance.dart';
@@ -245,8 +246,4 @@ class _Title extends StatelessWidget {
 
 /// «45 min», «1 h», «1 h 30». Sin ceros de relleno: es prosa, no un reloj.
 /// La usan la timeline y los consejos de Erizógenes.
-String formatGapDuration(DayGap gap) {
-  if (gap.hours == 0) return '${gap.minutes} ${SToday.countdownUnit}';
-  if (gap.remainderMinutes == 0) return '${gap.hours} h';
-  return '${gap.hours} h ${gap.remainderMinutes}';
-}
+String formatGapDuration(DayGap gap) => TimeSpans.minutes(gap.minutes);

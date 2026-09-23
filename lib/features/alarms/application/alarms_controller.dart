@@ -26,7 +26,12 @@ Future<List<(PlannedAlarm, String)>> plannedClockAlarms(Ref ref) async {
   final alarms = AlarmPlanner.weekly(
     classes: [
       for (final (session, subject, _) in sessions)
-        WeeklyClass(subject: subject.nombre, weekday: session.diaSemana, start: session.horaInicio),
+        WeeklyClass(
+          subject: subject.nombre,
+          weekday: session.diaSemana,
+          start: session.horaInicio,
+          end: session.horaFin,
+        ),
     ],
     leaveOffset: leaveOffsetOf((
       mode: settings.modoTransporte,
@@ -36,6 +41,7 @@ Future<List<(PlannedAlarm, String)>> plannedClockAlarms(Ref ref) async {
     wake: settings.alarmaDespertar,
     wakeMinutes: settings.alarmaDespertarMin,
     leave: settings.alarmaSalir,
+    travelMinutes: DeparturePlanner.travelMinutesFor(settings.modoTransporte, settings.trayectoMinutos),
   );
   return [
     for (final a in alarms)

@@ -424,7 +424,16 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
         _idle.repeat(reverse: true);
         _aux.repeat(reverse: true);
       case MascotPose.reposo || MascotPose.satisfecho:
-        _idle.repeat(reverse: true);
+        // A tamaño pequeño (la esquina, el loader en línea) respirar un 2 %
+        // son décimas de píxel: no se ve y obliga a redibujar a 120 Hz en
+        // todas las pantallas. Ahí solo parpadea.
+        if (widget.size <= MascotTokens.smallThreshold) {
+          _idle
+            ..stop()
+            ..value = 0;
+        } else {
+          _idle.repeat(reverse: true);
+        }
         _aux.stop();
         _aux.value = 0;
     }
@@ -494,28 +503,42 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
             final linear = pose == MascotPose.rodando || pose == MascotPose.dormido;
             final idle = pose == MascotPose.rodando ? _idle.value : _sine.transform(_idle.value);
             final aux = linear ? _aux.value : _sine.transform(_aux.value);
+            // La respiración en reposo es solo una escala: se hace fuera del
+            // pintor, sobre la capa ya pintada, para que respirar no obligue a
+            // redibujar el erizo entero en cada fotograma.
+            final spec = _poses[pose]!;
+            final antic = _antic.isAnimating ? _activeAntic : null;
+            final breathes = spec.breathes && antic == null;
+            final breath = breathes ? 1 + (MascotTokens.breatheScaleMax - 1) * idle : 1.0;
             return Opacity(
               opacity: _enter.value.clamp(0.0, 1.0),
               child: Transform.scale(
                 scale: scale,
                 alignment: Alignment.bottomCenter,
-                child: CustomPaint(
-                  painter: _ErizogenesPainter(
-                    pose: pose,
-                    dark: dark,
-                    idle: idle,
-                    aux: aux,
-                    blink: _petted ? 0 : _blink.value,
-                    poke: _poke.isAnimating ? _poke.value : 0,
-                    look: _look,
-                    petted: _petted,
-                    weary: widget.weary,
-                    from: _morph.isAnimating ? _morphFrom : null,
-                    morph: MotionCurves.easeOutCubic.transform(_morph.value),
-                    beat: _beat.isAnimating ? _activeBeat : null,
-                    beatT: _beat.value,
-                    antic: _antic.isAnimating ? _activeAntic : null,
-                    anticT: _antic.value,
+                child: Transform(
+                  transform: Matrix4.diagonal3Values(1, breath, 1),
+                  alignment: FractionalOffset(0.5, (spec.cy + spec.ryBottom) / 100),
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _ErizogenesPainter(
+                        pose: pose,
+                        dark: dark,
+                        breathe: false,
+                        idle: breathes ? 0.5 : idle,
+                        aux: aux,
+                        blink: _petted ? 0 : _blink.value,
+                        poke: _poke.isAnimating ? _poke.value : 0,
+                        look: _look,
+                        petted: _petted,
+                        weary: widget.weary,
+                        from: _morph.isAnimating ? _morphFrom : null,
+                        morph: MotionCurves.easeOutCubic.transform(_morph.value),
+                        beat: _beat.isAnimating ? _activeBeat : null,
+                        beatT: _beat.value,
+                        antic: antic,
+                        anticT: _antic.value,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -526,7 +549,11 @@ class _MascotViewState extends State<MascotView> with TickerProviderStateMixin {
     );
 
     if (!widget.interactive) return art;
+    // `container`: el botón es el erizo, no su ancestro. Sin esto la etiqueta
+    // se fundía hacia arriba y en la esquina el lector de pantalla leía la
+    // pantalla entera como «Tócalo y suelta una sentencia».
     return Semantics(
+      container: true,
       button: true,
       label: widget.semanticHint ?? SMascotVoice.hint,
       child: GestureDetector(
@@ -1233,9 +1260,15 @@ class _ErizogenesPainter extends CustomPainter {
     this.beatT = 0,
     this.antic,
     this.anticT = 0,
+    this.breathe = true,
   });
 
   final MascotPose pose;
+
+  /// Si respira dentro del pintor. `MascotView` lo hace fuera, con una
+  /// transformación sobre la capa ya pintada; la figura del ánfora y la
+  /// imagen quieta de los widgets, aquí.
+  final bool breathe;
 
   /// Tema oscuro: agujas y pies más claros, y otra opacidad de sombra.
   final bool dark;
@@ -1382,7 +1415,7 @@ class _ErizogenesPainter extends CustomPainter {
       // Respiración de sueño: más lenta y hacia abajo. Un cuerpo dormido no se
       // hincha, se hunde un poco.
       _scaleFromFeet(canvas, p, 1, 1 - (1 - MascotTokens.sleepScale) * idle);
-    } else if (p.breathes) {
+    } else if (p.breathes && breathe) {
       _scaleFromFeet(canvas, p, 1, 1 + (MascotTokens.breatheScaleMax - 1) * idle);
     }
 
@@ -2165,7 +2198,8 @@ class _ErizogenesPainter extends CustomPainter {
       old.beat != beat ||
       old.beatT != beatT ||
       old.antic != antic ||
-      old.anticT != anticT;
+      old.anticT != anticT ||
+      old.breathe != breathe;
 }
 
 /// El ánfora de figuras negras, en un lienzo de 120×160: cuello negro con

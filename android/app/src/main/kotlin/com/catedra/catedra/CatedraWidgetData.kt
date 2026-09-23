@@ -29,6 +29,8 @@ data class WidgetClass(
     val room: String?,
     val color: Int,
     val status: String,
+    /** Trayecto de esta clase: 0 si ya estás en la U por una anterior. */
+    val travel: Int = -1,
 ) {
     val isLive get() = status == "pending"
 }
@@ -102,7 +104,8 @@ class WidgetData(
     fun arrival(c: WidgetClass): Arrival {
         val now = nowMinutes()
         val late = isToday(c) && now > c.leave
-        val at = if (late) now + travel else c.leave + travel
+        val trip = if (c.travel >= 0) c.travel else travel
+        val at = if (late) now + trip else c.leave + trip
         return Arrival(hhmm(at), c.start - at, late)
     }
 
@@ -162,6 +165,7 @@ class WidgetData(
                         room = if (c.isNull("room")) null else c.getString("room"),
                         color = c.getInt("color"),
                         status = c.getString("status"),
+                        travel = c.optInt("travel", -1),
                     )
                 }
                 val q = o.optJSONObject("quips")

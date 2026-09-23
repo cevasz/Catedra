@@ -4,9 +4,12 @@
 /// intent de Android) y con qué texto (el contrato) es cosa de otras capas.
 library;
 
+import '../../core/time/minutes_of_day.dart';
+import '../departure/departure.dart';
+
 /// Una clase del horario semanal, lo mínimo para planear alarmas.
 class WeeklyClass {
-  const WeeklyClass({required this.subject, required this.weekday, required this.start});
+  const WeeklyClass({required this.subject, required this.weekday, required this.start, this.end});
 
   final String subject;
 
@@ -15,6 +18,10 @@ class WeeklyClass {
 
   /// Minutos desde medianoche.
   final int start;
+
+  /// Minutos desde medianoche. Sin él no se sabe si la siguiente clase del
+  /// día te encuentra ya en la U, y se asume que sales de casa.
+  final int? end;
 }
 
 enum AlarmKind { wake, leave }
@@ -89,12 +96,17 @@ abstract final class AlarmPlanner {
   ///
   /// Las que caen a la misma hora se juntan en una sola alarma con varios
   /// días: el Reloj las muestra así y hay menos que borrar si cambia el horario.
+  ///
+  /// La de salir solo se crea cuando de verdad sales de casa
+  /// ([DeparturePlanner.leavesFromHome] con [travelMinutes]): entre dos
+  /// clases seguidas ya estás en la U y un «Salir» a mitad de día sobra.
   static List<PlannedAlarm> weekly({
     required List<WeeklyClass> classes,
     required int leaveOffset,
     required bool wake,
     required int wakeMinutes,
     required bool leave,
+    int? travelMinutes,
   }) {
     final out = <PlannedAlarm>[];
     int clamp(int m) => m.clamp(0, 24 * 60 - 1);
@@ -117,7 +129,22 @@ abstract final class AlarmPlanner {
 
     if (leave) {
       final daysBy = <(int, String), List<int>>{};
+      final ordered = [...classes]..sort((a, b) => a.start.compareTo(b.start));
+      final lastEnd = <int, int>{};
+      final fromHome = <WeeklyClass, bool>{};
+      for (final c in ordered) {
+        final prev = lastEnd[c.weekday];
+        fromHome[c] = travelMinutes == null ||
+            DeparturePlanner.leavesFromHome(
+              previousEnd: prev == null ? null : MinutesOfDay(prev),
+              start: MinutesOfDay(c.start),
+              travelMinutes: travelMinutes,
+            );
+        final end = c.end;
+        if (end != null && (prev == null || end > prev)) lastEnd[c.weekday] = end;
+      }
       for (final c in classes) {
+        if (!(fromHome[c] ?? true)) continue;
         final list = daysBy.putIfAbsent((clamp(c.start - leaveOffset), c.subject), () => []);
         if (!list.contains(c.weekday)) list.add(c.weekday);
       }

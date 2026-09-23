@@ -67,7 +67,14 @@ class AppShell extends ConsumerWidget {
     final size = context.sizeClass;
     void select(int i) => ref.read(shellTabProvider.notifier).state = i;
 
-    final body = IndexedStack(index: index, children: _screens);
+    // Las pestañas ocultas siguen vivas (conservan scroll y estado), pero sin
+    // animar: sus loops no deben gastar batería detrás de la que se ve.
+    final body = IndexedStack(
+      index: index,
+      children: [
+        for (var i = 0; i < _screens.length; i++) TickerMode(enabled: i == index, child: _screens[i]),
+      ],
+    );
 
     if (size.hasRail) {
       return Scaffold(

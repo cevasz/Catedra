@@ -888,6 +888,28 @@ app, sin dependencias nuevas.
 - **Solo https** y un `version.json` mal formado se ignora: no hay descarga a
   medias por un manifiesto roto.
 
+## 44. Horarios más realistas: tolerancia, salir desde casa y tiempos legibles
+
+**Pedido del usuario (2026-09-23):** cálculos más realistas y «no mostrar 300
+minutos». Probado en el teléfono: a las 12:30 Hoy decía «Ya. Camina.» para
+una clase de 11:00 a 13:00.
+
+- **Tolerancia de 15 min** (`DeparturePlanner.lateToleranceMinutes`): casi
+  todas las clases dejan entrar tarde sin falta. Una clase es «a la que hay
+  que ir» hasta su inicio más la tolerancia; después Hoy pasa a la siguiente.
+  Entre el inicio y el fin de la tolerancia la card dice hasta qué hora aún
+  entras. Una falta (marcada o detectada) tampoco se persigue.
+- **Salir desde casa, solo cuando toca:** el trayecto cuenta para la primera
+  clase del día o cuando el hueco desde la anterior da para ir a casa, estar
+  una hora y volver (`leavesFromHome`). Si no, ya estás en la U: sin
+  trayecto, solo el margen («Ya estás en la U · llegas 5 min antes»). La
+  misma regla alimenta Hoy, los widgets (trayecto por clase) y las alarmas
+  (no hay «Salir» a mitad de día entre dos clases seguidas).
+- **Tiempos legibles** (`TimeSpans`): «45 min», «2 h», «1 h 20 min»; en el
+  anillo, «4:05» con «h». Nunca «300 min».
+- **El modo real:** la línea de llegada dice «a pie», «en bus» o «en carro»
+  según Ajustes; antes decía «a pie» siempre.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura

@@ -90,6 +90,27 @@ Future<void> _push(Ref ref) async {
     if (d == today.add(const Duration(days: 1))) return SWidgets.pendingTomorrow;
     return shortDay.format(d);
   }
+  // El trayecto de cada clase: desde casa si es la primera del día o si el
+  // hueco da para volver; si no, ya estás en la U y no hay trayecto.
+  final tripOf = <int, int>{};
+  final lastEndByDay = <DateTime, int>{};
+  for (final c in classes) {
+    if (c.status == SessionStatus.canceladaProfe) {
+      tripOf[c.instance.id] = travel;
+      continue;
+    }
+    final day = c.instance.fecha;
+    final prev = lastEndByDay[day];
+    final fromHome = DeparturePlanner.leavesFromHome(
+      previousEnd: prev == null ? null : MinutesOfDay(prev),
+      start: MinutesOfDay(c.session.horaInicio),
+      travelMinutes: travel,
+    );
+    tripOf[c.instance.id] = fromHome ? travel : 0;
+    lastEndByDay[day] = c.session.horaFin;
+  }
+  int leaveOf(DayClass c) => MinutesOfDay(c.session.horaInicio).minus((tripOf[c.instance.id] ?? travel) + buffer).raw;
+
   final items = [
     for (final c in classes)
       {
@@ -97,10 +118,11 @@ Future<void> _push(Ref ref) async {
         'day': SWeek.days[c.instance.fecha.weekday - 1],
         'start': c.session.horaInicio,
         'end': c.session.horaFin,
-        'leave': MinutesOfDay(c.session.horaInicio).minus(travel + buffer).raw,
+        'leave': leaveOf(c),
+        'travel': tripOf[c.instance.id] ?? travel,
         'startLabel': MinutesOfDay(c.session.horaInicio).hhmm,
         'endLabel': MinutesOfDay(c.session.horaFin).hhmm,
-        'leaveLabel': MinutesOfDay(c.session.horaInicio).minus(travel + buffer).hhmm,
+        'leaveLabel': MinutesOfDay(leaveOf(c)).hhmm,
         'name': c.subject.nombre,
         'room': c.room?.codigo,
         'color': c.subject.colorIndex,

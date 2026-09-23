@@ -27,9 +27,17 @@ class DeparturePlan {
     required this.minutesUntilLeave,
     required this.urgency,
     required this.mode,
+    this.fromHome = true,
   });
 
   final MinutesOfDay classStart;
+
+  /// Si se sale de casa. Falso cuando ya estás en la universidad por una
+  /// clase anterior: entonces no hay trayecto, solo el margen.
+  final bool fromHome;
+
+  /// Hasta cuándo te dejan entrar sin falta.
+  MinutesOfDay get toleranceEnd => classStart.plus(DeparturePlanner.lateToleranceMinutes);
 
   /// hora_clase − tiempo_ruta − buffer.
   final MinutesOfDay leaveAt;
@@ -54,6 +62,25 @@ class DeparturePlan {
 abstract final class DeparturePlanner {
   /// Umbral a partir del cual la card deja de estar en reposo.
   static const int soonThresholdMinutes = 30;
+
+  /// Casi todas las clases dejan entrar hasta quince minutos tarde sin falta.
+  /// Pasado eso la clase ya no es «a la que hay que ir»: Hoy pasa a la
+  /// siguiente, y si la ubicación dice que sigues en casa, cuenta la falta.
+  static const int lateToleranceMinutes = 15;
+
+  /// Lo mínimo que vale la pena quedarse en casa entre dos clases. Con menos
+  /// hueco que ir, estar esto y volver, lo realista es que sigas en la U.
+  static const int homeStayMinutes = 60;
+
+  /// ¿Se sale de casa hacia la clase que empieza a [start]? Sí si es la
+  /// primera del día ([previousEnd] null) o si el hueco desde la anterior da
+  /// para ir a casa, estar [homeStayMinutes] y volver.
+  static bool leavesFromHome({
+    required MinutesOfDay? previousEnd,
+    required MinutesOfDay start,
+    required int travelMinutes,
+  }) =>
+      previousEnd == null || previousEnd.difference(start) >= 2 * travelMinutes + homeStayMinutes;
 
   /// Buffer por defecto cuando todavía no se han leído los ajustes. Coincide
   /// con el `withDefault` de `UserSettings.bufferMinutos`: si los dos números
@@ -84,18 +111,22 @@ abstract final class DeparturePlanner {
     required int travelMinutes,
     required int bufferMinutes,
     required TransportMode mode,
+    bool fromHome = true,
   }) {
-    final leaveAt = classStart.minus(travelMinutes + bufferMinutes);
+    // Desde la U no hay trayecto: solo el margen para llegar al salón.
+    final travel = fromHome ? travelMinutes : 0;
+    final leaveAt = classStart.minus(travel + bufferMinutes);
     final until = now.difference(leaveAt);
 
     return DeparturePlan(
       classStart: classStart,
       leaveAt: leaveAt,
-      travelMinutes: travelMinutes,
+      travelMinutes: travel,
       bufferMinutes: bufferMinutes,
       minutesUntilLeave: until,
       urgency: _urgency(until, now, classStart),
       mode: mode,
+      fromHome: fromHome,
     );
   }
 

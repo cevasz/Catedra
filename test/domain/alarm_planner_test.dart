@@ -75,4 +75,21 @@ void main() {
     expect(reminders.map((r) => r.evaluation.id), [3, 1]);
     expect(reminders.first.at, DateTime(2026, 9, 23, 20));
   });
+
+  test('entre dos clases seguidas no hay alarma de salir: ya estás en la U', () {
+    final alarms = AlarmPlanner.weekly(
+      classes: const [
+        WeeklyClass(subject: 'Lengua', weekday: 3, start: 7 * 60, end: 9 * 60),
+        WeeklyClass(subject: 'Cálculo', weekday: 3, start: 11 * 60, end: 13 * 60),
+        WeeklyClass(subject: 'Empresarial', weekday: 3, start: 14 * 60, end: 16 * 60),
+      ],
+      leaveOffset: 35,
+      wake: false,
+      wakeMinutes: 60,
+      leave: true,
+      travelMinutes: 30,
+    );
+    expect(alarms.map((a) => a.subject), ['Lengua', 'Cálculo'],
+        reason: 'Cálculo: 2 h de hueco dan para volver a casa; Empresarial, a una hora, no');
+  });
 }

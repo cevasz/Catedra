@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/format/durations.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../theme/motion.dart';
 import '../../../../theme/tokens.g.dart';
@@ -22,9 +23,10 @@ class OdometerMinutes extends StatelessWidget {
   Widget build(BuildContext context) {
     final guard = MotionGuard.of(context);
     final style = AppTheme.styleOf(TypeTokens.displayM, color);
-    // El tope de dígitos es del componente, no de quien le pasa los minutos:
-    // por encima de él el carro rompe el ancho del anillo.
-    final shown = minutes.clamp(0, ComponentTokens.odometerMaxMinutes.round());
+    // El tope es del componente, no de quien le pasa los minutos: por encima
+    // de él el carro rompe el ancho del anillo. Pasada la hora se lee en
+    // horas («4:05»), nunca «245».
+    final shown = TimeSpans.compact(minutes.clamp(0, ComponentTokens.odometerMaxMinutes.round())).value;
 
     return AnimatedSwitcher(
       duration: guard.duration(MotionDurations.odometer),
@@ -45,8 +47,8 @@ class OdometerMinutes extends StatelessWidget {
         );
       },
       child: Text(
-        '$shown',
-        key: ValueKey<int>(shown),
+        shown,
+        key: ValueKey<String>(shown),
         style: style,
       ),
     );
