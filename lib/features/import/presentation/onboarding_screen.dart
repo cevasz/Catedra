@@ -21,60 +21,69 @@ class OnboardingScreen extends StatelessWidget {
     final b = Theme.of(context).brightness;
 
     return Scaffold(
-      body: SafeArea(
-        child: ContentWidth(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: LayoutTokens.screenPaddingHHero),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Spacer(),
-                const Center(
-                  child: MascotView(
-                    pose: MascotPose.reposo,
-                    size: MascotTokens.sizeSplash,
-                    host: MascotHost.splash,
-                  ),
+      body: Stack(
+        children: [
+          // De fondo, Erizógenes pintado en un ánfora: la portada de la app
+          // también es la de un filósofo griego.
+          const SafeArea(
+            child: Align(alignment: Alignment.topCenter, child: MascotVase()),
+          ),
+          SafeArea(
+            child: ContentWidth(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: LayoutTokens.screenPaddingHHero),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Spacer(),
+                    const Center(
+                      child: MascotView(
+                        pose: MascotPose.reposo,
+                        size: MascotTokens.sizeSplash,
+                        host: MascotHost.splash,
+                      ),
+                    ),
+                    SizedBox(height: SpaceTokens.xl),
+                    Text(
+                      SOnboarding.brand,
+                      textAlign: TextAlign.center,
+                      style: context.type(TypeTokens.displayM),
+                    ),
+                    SizedBox(height: SpaceTokens.m),
+                    Text(
+                      SOnboarding.tagline,
+                      textAlign: TextAlign.center,
+                      style: context.type(TypeTokens.titleS),
+                    ),
+                    SizedBox(height: SpaceTokens.s),
+                    Text(
+                      SOnboarding.subtitle,
+                      textAlign: TextAlign.center,
+                      style: context.type(TypeTokens.bodyL, color: ColorTokens.textSecondary.of(b)),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: () => openImportPdf(context),
+                      child: const Text(SOnboarding.ctaImport),
+                    ),
+                    SizedBox(height: SpaceTokens.s),
+                    OutlinedButton(
+                      onPressed: () => openSubjectForm(context),
+                      child: const Text(SOnboarding.ctaManual),
+                    ),
+                    SizedBox(height: SpaceTokens.l),
+                    Text(
+                      SOnboarding.privacyFooter,
+                      textAlign: TextAlign.center,
+                      style: context.type(TypeTokens.captionS, color: ColorTokens.textTertiary.of(b)),
+                    ),
+                    SizedBox(height: SpaceTokens.xl),
+                  ],
                 ),
-                SizedBox(height: SpaceTokens.xl),
-                Text(
-                  SOnboarding.brand,
-                  textAlign: TextAlign.center,
-                  style: context.type(TypeTokens.displayM),
-                ),
-                SizedBox(height: SpaceTokens.m),
-                Text(
-                  SOnboarding.tagline,
-                  textAlign: TextAlign.center,
-                  style: context.type(TypeTokens.titleS),
-                ),
-                SizedBox(height: SpaceTokens.s),
-                Text(
-                  SOnboarding.subtitle,
-                  textAlign: TextAlign.center,
-                  style: context.type(TypeTokens.bodyL, color: ColorTokens.textSecondary.of(b)),
-                ),
-                const Spacer(),
-                FilledButton(
-                  onPressed: () => openImportPdf(context),
-                  child: const Text(SOnboarding.ctaImport),
-                ),
-                SizedBox(height: SpaceTokens.s),
-                OutlinedButton(
-                  onPressed: () => openSubjectForm(context),
-                  child: const Text(SOnboarding.ctaManual),
-                ),
-                SizedBox(height: SpaceTokens.l),
-                Text(
-                  SOnboarding.privacyFooter,
-                  textAlign: TextAlign.center,
-                  style: context.type(TypeTokens.captionS, color: ColorTokens.textTertiary.of(b)),
-                ),
-                SizedBox(height: SpaceTokens.xl),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

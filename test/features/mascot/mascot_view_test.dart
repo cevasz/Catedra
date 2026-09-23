@@ -33,7 +33,7 @@ void main() {
 
   testWidgets('a tamaño pequeño usa la variante de púas gordas sin fallar', (tester) async {
     await tester.pumpWidget(host(MascotPose.rodando, size: MascotTokens.sizeWidget4x4));
-    await tester.pump(MotionDurations.mascotRoll);
+    await tester.pump(MotionDurations.mascotRun);
     expect(tester.takeException(), isNull);
   });
 
@@ -83,6 +83,39 @@ void main() {
     await drag.up();
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('corriendo cansado (carga larga) se pinta sin fallar', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: const Center(
+          child: MascotView(pose: MascotPose.rodando, size: 118, host: MascotHost.loader, weary: true),
+        ),
+      ),
+    );
+    // Un ciclo de mirar atrás entero: pasa por el pico del giro de cabeza.
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(MotionDurations.mascotLookBack ~/ 8);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('el ánfora pinta la figura y bajo reduced-motion no anima', (tester) async {
+    for (final reduced in [false, true]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: MediaQuery(
+            data: MediaQueryData(disableAnimations: reduced),
+            child: const Center(child: MascotVase(pose: MascotPose.dormido)),
+          ),
+        ),
+      );
+      await tester.pump(MotionDurations.mascotBreathe);
+      expect(tester.takeException(), isNull);
+      expect(tester.binding.hasScheduledFrame, !reduced ? isTrue : isFalse);
+    }
   });
 
   testWidgets('bajo reduced-motion aparece con fade y se queda quieta', (tester) async {

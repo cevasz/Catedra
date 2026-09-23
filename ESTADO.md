@@ -87,7 +87,7 @@ esquema de base v3.
 - [x] Desde 840 dp: Hoy en dos columnas, Materias en maestro-detalle, Notas y Asistencia lado a lado, semana sin scroll horizontal
 - [x] Formularios, calculadora, ajustes y sheets acotados a 720 dp y centrados
 - [x] Transición de ruta propia (fade + subida), cross-fade entre estados de la card de Hoy y del panel de detalle
-- [x] Mascota: entrada con rebote, respiración, parpadeo, rodada con squash, sueño con «z», mirada que barre y monóculo que destella o se bambolea
+- [x] Mascota: entrada con rebote, respiración, parpadeo, carrera con zancada y cansancio en cargas largas, sueño con «z», mirada que barre y lámpara cuya llama cuenta el estado; ánfora de figuras negras de fondo
 - [x] Todo degrada bajo «reducir movimiento»
 
 ### Cimientos

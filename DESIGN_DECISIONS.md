@@ -701,6 +701,9 @@ teléfono, automático.
 
 ## 37. Erizógenes rediseñado: erizo de mar, no bola de púas
 
+> **Actualizado por el §39:** el cuerpo, la cara y las poses siguen; el
+> monóculo y el violeta no. Ahora es terracota y lleva la lámpara.
+
 **Pedido del usuario (2026-09-23):** rediseñarlo por completo «para que tenga
 mucha más personalidad». Se exploraron tres láminas en el lienzo
 «Erizógenes rediseño» (actual, A fiel en pardo, B erizo de mar) y el usuario
@@ -748,6 +751,42 @@ modo (15 a pie, 35 bus, 20 carro) y no usaba la ubicación para nada.
   crearlas desde Ajustes.
 - La ruta real con ubicación sigue pendiente (Fase 4); cuando llegue, este
   ajuste queda como respaldo.
+
+## 39. Más Diógenes: la lámpara, la cerámica griega y el ánfora
+
+**Pedido del usuario (2026-09-23):** «dejemos a un lado la idea del
+monóculo… más griego, más Diógenes». Se exploraron la lámpara, el tribón con
+bastón, las figuras rojas y un busto con melena (lámina «Sin monóculo»). El
+usuario pidió **la lámpara mezclada con las figuras rojas** y, además, que
+Erizógenes aparezca **de fondo pintado en un jarrón griego, como las musas de
+Hércules**.
+
+- **La lucerna sustituye al monóculo.** Es la lámpara con la que Diógenes
+  buscaba «un hombre» a plena luz del día. La llama cuenta cómo está: viva en
+  reposo, alta cuando examina, humo cuando duerme, casi apagada y la lámpara
+  en el suelo cuando algo no cuadra. Se mece con la respiración y aletea
+  hacia atrás al correr.
+- **Paleta de figuras rojas:** cuerpo terracota, agujas oscuras con punta
+  clara. En tema oscuro las agujas y los pies se aclaran
+  (`spikesOnDark`, `spikeTipOnDark`, `pawOnDark`): negras sobre casi negro
+  desaparecían y solo quedaban las puntas.
+- **`MascotVase`:** un ánfora de figuras negras (cuello negro con hojas,
+  meandro, rayos) con Erizógenes pintado en el panel, con la paleta
+  `figure` del mismo pintor: todo silueta, las líneas «incisas» dejan ver el
+  barro. Respira y su llama se mece; bajo reduced-motion, quieta. Va tenue
+  (`vaseOpacityDark` 0,16, `vaseOpacityLight` 0,2), sin tacto y fuera del
+  lector de pantalla. Aparece solo en la bienvenida y detrás del día sin
+  clases (dormido, como el de delante). Nuevo host `jarrón de fondo`.
+- **Fase 2, la carrera:** `rodando` ya no gira 360°: corre (bob, zancada
+  alterna, agujas que aletean, sombra que respira, aplastado al tocar el
+  suelo). La carga y el «sal ya» corren igual (decisión del usuario).
+  `MascotLoader`, pasado `mascotLoaderLong` (6 s), lo cansa: zancada más
+  corta, párpados bajos, cada `mascotLookBack` mira hacia atrás, y la frase
+  pasa a `loadingLongLines`. `mascotRoll` pasa a llamarse `mascotRun`.
+- **Pendiente:** el saltito de aterrizaje al terminar una carga. Hoy la
+  pantalla cambia el loader por el contenido en el mismo fotograma; para
+  verlo haría falta que el loader sobreviva un instante al dato, y eso toca
+  las seis pantallas que lo usan.
 
 ## Lo que sigue sin especificación visual
 

@@ -576,8 +576,6 @@ void _mascot(StringBuffer b, Map<String, dynamic> m) {
   b.writeln('  static const int spikesSmall = ${(m['spikes'] as Map)['small']};');
   b.writeln('  /// Segunda capa de agujas, más cortas, entre las de fuera. Solo a tamaño normal.');
   b.writeln('  static const int spikesFront = ${(m['spikes'] as Map)['front']};');
-  b.writeln('  static const double monocleStrokeNormal = ${((m['monocleStroke'] as Map)['normal'] as num).toDouble()};');
-  b.writeln('  static const double monocleStrokeSmall = ${((m['monocleStroke'] as Map)['small'] as num).toDouble()};');
   b.writeln('  static const bool rimLightOnLightTheme = ${m['rimLightOnLightTheme']};');
   b.writeln('  /// Ventana en la que [dizzyTaps] toques seguidos lo marean.');
   b.writeln('  static const Duration pokeWindow = Duration(milliseconds: ${m['pokeWindowMs']});');

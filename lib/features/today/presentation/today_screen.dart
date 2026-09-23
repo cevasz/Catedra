@@ -61,8 +61,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 Container(
                   padding: EdgeInsets.all(SpaceTokens.cardPadding),
                   decoration: BoxDecoration(
-                    color: ColorTokens.surfaceCard
-                        .of(Theme.of(context).brightness),
+                    color: ColorTokens.surfaceCard.of(Theme.of(context).brightness),
                     borderRadius: BorderRadius.circular(RadiusTokens.card),
                   ),
                   child: Row(
@@ -217,9 +216,8 @@ class _CardStack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = state;
-    final signature = s.isEmpty
-        ? 'empty'
-        : 'c${s.cancelled?.instance.id}-n${s.next?.instance.id}-u${s.isUrgent}';
+    final signature =
+        s.isEmpty ? 'empty' : 'c${s.cancelled?.instance.id}-n${s.next?.instance.id}-u${s.isUrgent}';
 
     return StateSwitcher(
       child: KeyedSubtree(
@@ -334,9 +332,7 @@ class _NextClassCard extends ConsumerWidget {
     final next = state.next!;
     final urgent = plan.isUrgent;
 
-    final accent = urgent
-        ? ColorTokens.accentUrgent.of(b)
-        : SubjectPalette.at(next.subject.colorIndex);
+    final accent = urgent ? ColorTokens.accentUrgent.of(b) : SubjectPalette.at(next.subject.colorIndex);
 
     return _Card(
       accent: accent,
@@ -357,9 +353,7 @@ class _NextClassCard extends ConsumerWidget {
                       children: [
                         OdometerMinutes(
                           minutes: plan.minutesUntilLeave,
-                          color: urgent
-                              ? ColorTokens.accentUrgent.of(b)
-                              : ColorTokens.textPrimary.of(b),
+                          color: urgent ? ColorTokens.accentUrgent.of(b) : ColorTokens.textPrimary.of(b),
                         ),
                         Text(
                           SToday.countdownUnit,
@@ -392,14 +386,10 @@ class _NextClassCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      urgent
-                          ? SToday.urgentHeadline
-                          : SToday.leaveIn(n: plan.minutesUntilLeave),
+                      urgent ? SToday.urgentHeadline : SToday.leaveIn(n: plan.minutesUntilLeave),
                       style: context.type(
                         TypeTokens.titleM,
-                        color: urgent
-                            ? ColorTokens.accentUrgent.of(b)
-                            : ColorTokens.textPrimary.of(b),
+                        color: urgent ? ColorTokens.accentUrgent.of(b) : ColorTokens.textPrimary.of(b),
                       ),
                     ),
                     SizedBox(height: SpaceTokens.xs),
@@ -602,39 +592,47 @@ class _EmptyDay extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final upcoming = ref.watch(nextAfterTodayProvider).valueOrNull;
 
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: SpaceTokens.xxxl),
-      child: Column(
-        children: [
-          // Erizógenes duerme, pero si lo tocas se despierta lo justo para
-          // decir algo útil: la próxima evaluación, una materia en riesgo.
-          MascotCompanion.hero(
-            fallback: SEmptyDay.mascotLine,
-            heroPose: MascotPose.dormido,
-            // El headline entra con scale 0.95→1.0 complementando el fade del
-            // padre. Bajo reduced-motion solo hay fade.
-            heroTitle: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: MotionGuard.of(context).duration(MotionDurations.base),
-              curve: MotionGuard.of(context).curve(MotionCurves.easeOutCubic),
-              builder: (context, t, child) => Transform.scale(
-                scale: MotionGuard.of(context).reduced ? 1.0 : (0.95 + 0.05 * t),
-                child: child,
+    return Stack(
+      alignment: Alignment.topCenter,
+      children: [
+        // Detrás, su retrato en un ánfora, también dormido: el día vacío
+        // tiene algo de museo.
+        const MascotVase(pose: MascotPose.dormido),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: SpaceTokens.xxxl),
+          child: Column(
+            children: [
+              // Erizógenes duerme, pero si lo tocas se despierta lo justo para
+              // decir algo útil: la próxima evaluación, una materia en riesgo.
+              MascotCompanion.hero(
+                fallback: SEmptyDay.mascotLine,
+                heroPose: MascotPose.dormido,
+                // El headline entra con scale 0.95→1.0 complementando el fade del
+                // padre. Bajo reduced-motion solo hay fade.
+                heroTitle: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: MotionGuard.of(context).duration(MotionDurations.base),
+                  curve: MotionGuard.of(context).curve(MotionCurves.easeOutCubic),
+                  builder: (context, t, child) => Transform.scale(
+                    scale: MotionGuard.of(context).reduced ? 1.0 : (0.95 + 0.05 * t),
+                    child: child,
+                  ),
+                  child: Text(SEmptyDay.headline, style: context.type(TypeTokens.titleM)),
+                ),
               ),
-              child: Text(SEmptyDay.headline, style: context.type(TypeTokens.titleM)),
-            ),
+              if (upcoming != null) ...[
+                SizedBox(height: SpaceTokens.l),
+                _NextUpLine(item: upcoming),
+              ],
+              SizedBox(height: SpaceTokens.xl),
+              OutlinedButton(
+                onPressed: () => ref.read(shellTabProvider.notifier).state = ShellTab.week,
+                child: const Text(SEmptyDay.cta),
+              ),
+            ],
           ),
-          if (upcoming != null) ...[
-            SizedBox(height: SpaceTokens.l),
-            _NextUpLine(item: upcoming),
-          ],
-          SizedBox(height: SpaceTokens.xl),
-          OutlinedButton(
-            onPressed: () => ref.read(shellTabProvider.notifier).state = ShellTab.week,
-            child: const Text(SEmptyDay.cta),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
