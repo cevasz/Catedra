@@ -16,6 +16,8 @@ lib/l10n/strings.g.dart
 
 # Android: rutas de la máquina y caché de Gradle. El resto de android/ sí se versiona.
 android/local.properties
+# Firma: la escribe el workflow de GitHub desde sus secretos. Nunca al repo.
+android/key.properties
 android/.gradle/
 android/app/debug/
 android/app/profile/

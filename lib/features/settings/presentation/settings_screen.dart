@@ -15,6 +15,8 @@ import '../../alarms/application/alarms_controller.dart';
 import '../../mascot/application/mascot_voice.dart';
 import '../../mascot/mascot_error.dart';
 import '../../mascot/mascot_loader.dart';
+import '../../updates/application/update_providers.dart';
+import '../../updates/presentation/update_sheet.dart';
 
 /// Ajustes. Se guarda al tocar: no hay botón de guardar porque ningún ajuste
 /// es destructivo y todos se ven en vivo en Hoy.
@@ -167,6 +169,9 @@ class _Loaded extends ConsumerWidget {
         SizedBox(height: SpaceTokens.xl),
         const _SectionLabel(SAlarms.section),
         _AlarmsCard(settings: settings),
+        SizedBox(height: SpaceTokens.xl),
+        const _SectionLabel(SUpdates.section),
+        const _UpdatesCard(),
         SizedBox(height: SpaceTokens.xl),
         const _SectionLabel(SSettings.sectionAppearance),
         _Card(
@@ -432,6 +437,45 @@ class _Stepper extends StatelessWidget {
           onPressed: value < max ? () => onChanged(value + 1) : null,
           icon: const Icon(Icons.add),
           iconSize: IconTokens.sizeL,
+        ),
+      ],
+    );
+  }
+}
+
+/// Qué versión hay instalada, si hay una nueva y el botón para buscarla o
+/// instalarla. Buscar vuelve a leer el `version.json` del último Release.
+class _UpdatesCard extends ConsumerWidget {
+  const _UpdatesCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final check = ref.watch(updateCheckProvider);
+    final installed = check.valueOrNull?.installed;
+    final available = check.valueOrNull?.available;
+
+    final subtitle = switch (check) {
+      AsyncLoading() => SUpdates.checking,
+      AsyncData(:final value) when value.available != null =>
+        SUpdates.available(version: value.available!.versionName),
+      AsyncData(:final value) when value.reachable => SUpdates.upToDate,
+      _ => SUpdates.unreachable,
+    };
+
+    return _Card(
+      children: [
+        _Row(
+          title: installed == null ? SUpdates.section : SUpdates.current(version: installed.$2),
+          subtitle: subtitle,
+          trailing: available != null
+              ? FilledButton(
+                  onPressed: () => openUpdateSheet(context, available),
+                  child: const Text(SUpdates.update),
+                )
+              : TextButton(
+                  onPressed: check.isLoading ? null : () => ref.invalidate(updateCheckProvider),
+                  child: const Text(SUpdates.check),
+                ),
         ),
       ],
     );

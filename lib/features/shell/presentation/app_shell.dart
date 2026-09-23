@@ -10,6 +10,8 @@ import '../../map/presentation/map_screen.dart';
 import '../../schedule/presentation/week_screen.dart';
 import '../../subjects/presentation/subjects_screen.dart';
 import '../../today/presentation/today_screen.dart';
+import '../../updates/application/update_providers.dart';
+import '../../updates/presentation/update_sheet.dart';
 
 /// Posición de cada pestaña. Quien quiera saltar a una desde otra pantalla
 /// escribe uno de estos en `shellTabProvider`, no un número suelto.
@@ -56,6 +58,11 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Al abrir, mira si hay una versión nueva publicada. Sin red no pasa nada.
+    ref.listen<AsyncValue<UpdateCheck>>(updateCheckProvider, (_, next) {
+      final update = next.valueOrNull?.available;
+      if (update != null) showUpdateBanner(context, ref, update);
+    });
     final index = ref.watch(shellTabProvider);
     final size = context.sizeClass;
     void select(int i) => ref.read(shellTabProvider.notifier).state = i;

@@ -8,6 +8,8 @@ import android.os.Build
 import android.provider.AlarmClock
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -41,6 +43,37 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "catedra/updates").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "version" -> result.success(installedVersion())
+                "install" -> result.success(installApk(call.argument<String>("path").orEmpty()))
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    /** `versionCode` y `versionName` de lo que está instalado. */
+    private fun installedVersion(): Map<String, Any> {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode.toInt() else @Suppress("DEPRECATION") info.versionCode
+        return mapOf("code" to code, "name" to (info.versionName ?: ""))
+    }
+
+    /**
+     * Abre el instalador de Android con un APK descargado en la caché. Solo
+     * acepta archivos de `cache/updates/`, que es lo que comparte el
+     * FileProvider. La primera vez Android pide permiso para instalar apps
+     * desde Cátedra; lo gestiona el propio instalador.
+     */
+    private fun installApk(path: String): Boolean {
+        val file = File(path)
+        val updates = File(cacheDir, "updates")
+        if (!file.exists() || file.parentFile?.canonicalPath != updates.canonicalPath) return false
+        val uri = FileProvider.getUriForFile(this, "$packageName.updates", file)
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, "application/vnd.android.package-archive")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        return start(intent)
     }
 
     /**

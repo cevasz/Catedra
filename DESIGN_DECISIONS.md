@@ -860,6 +860,34 @@ materia enseñaban `Text('$e')`: el texto de la excepción de Dart, sin salida.
   imposible siguen sin mascota: eso no es un error de carga, es una mala
   noticia.
 
+## 43. Actualizaciones sin cable: GitHub Releases y un aviso en la app
+
+**Pedido del usuario (2026-09-23):** recibir versiones nuevas sin conectar el
+teléfono al ordenador. Elegido: Releases de GitHub más un aviso dentro de la
+app, sin dependencias nuevas.
+
+- **Publicar:** un tag `vX.Y.Z` dispara `.github/workflows/release.yml`:
+  genera el código, pasa los tests, compila, firma y publica `catedra.apk` y
+  `version.json` (`versionCode`, `versionName`, enlace, notas del tag).
+- **Recibir:** al abrir, la app lee
+  `releases/latest/download/version.json`. Si su `versionCode` es mayor que el
+  instalado, sale un aviso arriba («Hasta yo me actualizo»), una vez por
+  sesión. «Actualizar» descarga el APK a `cache/updates/` y abre el instalador
+  de Android (canal `catedra/updates` + `FileProvider` limitado a esa
+  carpeta). La primera vez Android pide permiso para instalar desde Cátedra.
+  En Ajustes → Actualizaciones: versión instalada y «Buscar actualización».
+  Sin red no pasa nada.
+- **La firma es la de siempre:** una actualización solo se instala encima si
+  va firmada con la misma clave; si no, Android obliga a desinstalar y se
+  pierden los datos. El workflow firma con la clave de la app ya instalada
+  (secretos `ANDROID_KEYSTORE_*`); en local, sin `android/key.properties`, se
+  firma como siempre.
+- **Sin la clave de Claude:** el repositorio es público y el APK también.
+  Cualquier clave compilada dentro se podría extraer, así que las versiones
+  de GitHub no la llevan y el importador usa el lector propio de horarios.
+- **Solo https** y un `version.json` mal formado se ignora: no hay descarga a
+  medias por un manifiesto roto.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura

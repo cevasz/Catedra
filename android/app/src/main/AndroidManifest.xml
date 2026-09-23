@@ -12,6 +12,10 @@
     <!-- Crear alarmas en el Reloj del teléfono y avisar la víspera de una evaluación. -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Actualizaciones sin cable: la app descarga la versión nueva de su
+         Release en GitHub y abre el instalador de Android. Android pide
+         permiso la primera vez. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
         android:label="Cátedra"
         android:name="${applicationName}"
@@ -38,6 +42,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Comparte con el instalador solo el APK descargado en cache/updates. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths"/>
+        </provider>
         <!-- Widgets de la pantalla de inicio. Los datos los deja la app en
              SharedPreferences (lib/features/widgets/home_widget_sync.dart). -->
         <receiver
