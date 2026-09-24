@@ -112,10 +112,16 @@ class CatedraDatabase extends _$CatedraDatabase {
       );
 }
 
+/// El archivo de la base en el teléfono. La copia de seguridad lo reemplaza
+/// al restaurar (§51).
+Future<File> databaseFile() async {
+  final dir = await getApplicationDocumentsDirectory();
+  return File(p.join(dir.path, 'catedra.sqlite'));
+}
+
 LazyDatabase _open() {
   return LazyDatabase(() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dir.path, 'catedra.sqlite'));
+    final file = await databaseFile();
     await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
     return NativeDatabase.createInBackground(file);
   });

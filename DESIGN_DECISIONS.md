@@ -1059,6 +1059,39 @@ otro tipo de horarios».
 - Falta lo de siempre: horarios reales de otras universidades como fixture.
   Si uno falla, guardar sus líneas en `test/fixtures/`.
 
+## 51. Dos canales (estable y Dev), clave de release y copia de seguridad
+
+**Pedido del usuario (2026-09-24):** compartir la app con amigos y seguir
+desarrollando en una copia propia: «la diaria es para ver las
+actualizaciones finales, la de dev es la que usaré siempre».
+
+- **Sabores de Gradle:** `prod` («Cátedra», `com.catedra.catedra`) y `dev`
+  («Cátedra Dev», `com.catedra.catedra.dev`, ícono sobre terracota). Se
+  instalan juntas y cada una tiene sus datos. Las dos se compilan en release;
+  cambian la firma y el id. `flutter build apk --flavor dev|prod`.
+- **Firmas:** la estable usa una clave de release nueva
+  (`~/.claves/catedra-release.jks`, RSA 4096, contraseña en
+  `catedra-release.properties` al lado; GitHub la tiene como secretos). La
+  Dev sigue con la clave de este equipo. La v0.2.0 publicada iba con la clave
+  de depuración: quien la tenga instalada debe desinstalarla una vez.
+- **La Dev no busca actualizaciones** (`appFlavor == 'dev'`): se instala por
+  cable. Ajustes lo dice en la sección de actualizaciones.
+- **Widgets:** home_widget resuelve el proveedor con el id de la app, que en
+  la Dev es otro. Se nombran completos (`com.catedra.catedra.<Proveedor>`).
+- **Copia de seguridad** (Ajustes): exportar hace `VACUUM INTO` y guarda un
+  `.catedra` (SQLite) donde la persona diga; restaurar valida que sea SQLite,
+  que tenga las tablas de Cátedra y que su versión no sea más nueva que la
+  app, cierra la base, deja la vieja como `.antes-de-restaurar` y la reabre
+  (migra si la copia es de una versión anterior).
+- **Releases:** el workflow compila `--flavor prod` y publica también
+  `catedra-universal.apk` para teléfonos de 32 bits.
+- **Arreglos heredados** (vistos en Kairós): «Ya voy» y «Llegué» no se
+  dibujaban (el tema da ancho infinito a los botones dentro de una fila con
+  Spacer) y la tarjeta de materia usaba un Border de lados distintos con
+  radio, que revienta al pintar: ahora es `AccentCard`.
+- El daemon de Gradle baja a 3 GB: con 8 GB en un equipo de 7 moría a mitad
+  de compilación.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura
