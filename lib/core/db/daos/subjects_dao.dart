@@ -254,6 +254,11 @@ class SubjectsDao extends DatabaseAccessor<CatedraDatabase> with _$SubjectsDaoMi
     );
   }
 
+  /// El color de la materia: un índice de la paleta o un ARGB de la rueda
+  /// (`SubjectPalette.isCustom`, §48).
+  Future<void> setColor(int id, int colorIndex) =>
+      (update(subjects)..where((t) => t.id.equals(id))).write(SubjectsCompanion(colorIndex: Value(colorIndex)));
+
   /// Cancela la materia (o la reactiva con `cancelled: false`).
   ///
   /// No borra nada: las sesiones ya marcadas son historia. Las pendientes se

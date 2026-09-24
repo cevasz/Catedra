@@ -236,12 +236,34 @@ String _buildTokens(Map<String, dynamic> t) {
 String _themedColorClass() => '''
 /// Un color con su par oscuro/claro. El tema nunca escoge por su cuenta: pide
 /// `of(brightness)` y el valor sale del contrato.
+///
+/// El par del contrato es el tema «Papiro». Otro tema (Personalizar, §48) se
+/// instala en [palette] y responde por [role]; si no trae ese rol, manda el
+/// contrato. Así los temas no tocan ni una pantalla.
 class ThemedColor {
-  const ThemedColor(this.dark, this.light);
+  const ThemedColor(this.dark, this.light, [this.role]);
   final Color dark;
   final Color light;
 
-  Color of(Brightness b) => b == Brightness.dark ? dark : light;
+  /// Nombre del rol (`surfaceBase`, `accentPrimary`…). Null: no se tematiza.
+  final String? role;
+
+  /// El tema activo. Lo instala la app antes de construir el ThemeData.
+  static PaletteResolver? palette;
+
+  Color of(Brightness b) {
+    final r = role;
+    final themed = r == null ? null : palette?.resolve(r, b);
+    return themed ?? (b == Brightness.dark ? dark : light);
+  }
+}
+
+/// Un tema que sabe responder por rol. Null: que decida el contrato.
+abstract interface class PaletteResolver {
+  Color? resolve(String role, Brightness b);
+
+  /// Colores de materia del tema, o null para los del contrato.
+  List<Color>? get subjects;
 }
 ''';
 
@@ -276,7 +298,7 @@ void _colors(StringBuffer b, Map<String, dynamic> color) {
       if (_meta(e.key)) continue;
       final v = e.value as Map<String, dynamic>;
       final name = _camel([group, e.key]);
-      b.writeln('  static const $name = ThemedColor(${_color(v['dark'] as String)}, ${_color(v['light'] as String)});');
+      b.writeln("  static const $name = ThemedColor(${_color(v['dark'] as String)}, ${_color(v['light'] as String)}, '$name');");
     }
   }
 
@@ -314,9 +336,19 @@ void _colors(StringBuffer b, Map<String, dynamic> color) {
   }
   b.writeln('  ];\n');
   b.writeln('  static int get length => values.length;\n');
+  b.writeln('  /// Un color elegido en la rueda se guarda tal cual, como ARGB opaco');
+  b.writeln('  /// (siempre ≥ 0xFF000000), en el mismo entero que el índice (§48).');
+  b.writeln('  static const int customThreshold = 0xFF000000;\n');
+  b.writeln('  static bool isCustom(int index) => index >= customThreshold;\n');
   b.writeln('  /// Normaliza cualquier entero a un índice válido, para no romper si');
-  b.writeln('  /// la BD trae un valor viejo o fuera de rango.');
-  b.writeln('  static Color at(int index) => values[index % values.length];');
+  b.writeln('  /// la BD trae un valor viejo o fuera de rango. Un índice de la paleta');
+  b.writeln('  /// toma el color del tema activo, si trae los suyos.');
+  b.writeln('  static Color at(int index) {');
+  b.writeln('    if (isCustom(index)) return Color(index);');
+  b.writeln('    final themed = ThemedColor.palette?.subjects;');
+  b.writeln('    final list = themed == null || themed.isEmpty ? values : themed;');
+  b.writeln('    return list[index % list.length];');
+  b.writeln('  }');
   b.writeln('}\n');
 }
 

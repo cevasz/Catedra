@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../theme/palette.dart';
 import '../theme/tokens.g.dart';
 import 'db/daos/schedule_dao.dart';
 import 'db/daos/settings_dao.dart';
@@ -67,6 +68,13 @@ final themeModeProvider = Provider<ThemeMode>((ref) {
     return ThemeMode.system;
   }
   return ThemeMode.values[index];
+});
+
+/// El tema de color activo. Null: Papiro, el contrato tal cual.
+final paletteProvider = Provider<AppPalette?>((ref) {
+  final s = ref.watch(settingsProvider).valueOrNull;
+  if (s == null) return null;
+  return Palettes.resolve(s.temaPaleta, paper: s.temaPapel, accent: s.temaAcento);
 });
 
 /// Pestaña activa del shell. Es un provider y no estado local del shell para

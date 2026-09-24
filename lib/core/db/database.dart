@@ -88,7 +88,7 @@ class CatedraDatabase extends _$CatedraDatabase {
           from4To5: (m, schema) async {
             await m.addColumn(schema.userSettings, schema.userSettings.detectarCasa);
           },
-          // v6: el trayecto aprende. Viajes medidos, la ruta por calles y el
+          // v6: el trayecto aprende y los temas de color. Viajes medidos, la ruta por calles y el
           // viaje en curso; todo nulo o encendido sin datos, así que la hora
           // de salida de nadie cambia al actualizar.
           from5To6: (m, schema) async {
@@ -99,6 +99,10 @@ class CatedraDatabase extends _$CatedraDatabase {
             await m.addColumn(s, s.rutaCarroMin);
             await m.addColumn(s, s.enCaminoDesde);
             await m.addColumn(s, s.enCaminoModo);
+            // Y el tema de color: Papiro para todos, que es como se veía.
+            await m.addColumn(s, s.temaPaleta);
+            await m.addColumn(s, s.temaPapel);
+            await m.addColumn(s, s.temaAcento);
           },
         ),
         beforeOpen: (details) async {

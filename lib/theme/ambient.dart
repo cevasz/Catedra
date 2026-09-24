@@ -20,8 +20,11 @@ abstract final class Ambient {
   /// El contrato apaga la temperatura ambiental en claro. Se consulta el token
   /// en vez de codificar la decisión aquí, para que reactivarla sea un cambio
   /// de tokens.json y no de código.
+  ///
+  /// Con otro tema que Papiro no corre: la temperatura está afinada para el
+  /// café del contrato y sobre otro fondo lo mancharía.
   static bool enabledFor(Brightness b) =>
-      b == Brightness.dark || ColorTokens.ambientEnabledInLightTheme;
+      ThemedColor.palette == null && (b == Brightness.dark || ColorTokens.ambientEnabledInLightTheme);
 
   static Color base(Brightness b, DateTime now) {
     if (!enabledFor(b)) return ColorTokens.surfaceBase.of(b);

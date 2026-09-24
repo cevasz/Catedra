@@ -983,6 +983,58 @@ tiempo». Elegido: OSRM como estimado inicial y aprender de los viajes.
   sale («Aprendido de 7 viajes · partía de 30 min»), deja apagar el
   aprendizaje y olvidar los viajes.
 
+## 48. Personalizar: temas en claro y oscuro y la rueda de color
+
+**Pedido del usuario (2026-09-23):** «usando una rueda de colores parecida a
+la que usa Concepts, agregar secciones para cambiar el diseño de la app»,
+con colores de materias, fondos y superficies, y diseños prehechos «pensados
+como el que ya está en la app», que funcionen en modo oscuro y normal.
+
+- **Mecánica:** cada `ColorTokens.*` sabe su rol (`surfaceBase`,
+  `accentPrimary`…) y consulta `ThemedColor.palette` antes de devolver el par
+  del contrato. La app instala el tema antes de construir el `ThemeData`, así
+  que las 300 llamadas que ya existían cambian de color sin tocarlas. Papiro
+  es el contrato tal cual (resolver nulo).
+- **Temas:** Papiro, Pizarra (la pizarra verde de Concepts: tiza crema y
+  amarilla de noche), Tinta, Terracota, Lavanda, Musgo y Alto contraste. Cada
+  uno se define con papel, tinta y acento **por modo**; tarjetas, bordes,
+  textos secundarios y texto sobre acento se derivan con reglas que buscan el
+  contraste (WCAG: 7 el texto, 4,5 el secundario y los botones, 3 el
+  terciario y los acentos). `palette_test.dart` lo comprueba en todos los
+  temas y en temas propios extremos (amarillo puro, gris sobre gris).
+- **Tema propio:** dos colores de la rueda. Del papel se toma el tono y de
+  ahí salen el fondo claro y el oscuro; el acento se aclara en oscuro y se
+  oscurece en claro. Funciona en los dos modos sin pedir más.
+- **La rueda (`CopicWheel`):** media rueda con el centro abajo, en la zona del
+  pulgar. Catorce familias al modo COPIC (R, RV, V, BV, B, BG, G, YG, Y, YR,
+  E, W, C, N) en el anillo; la elegida sube y abre cuatro rayos (de viva a
+  agrisada) de seis pasos (claro afuera, oscuro adentro), con su código
+  («E13»). Arrastrar el anillo gira la rueda; arrastrar sobre los rayos
+  elige. «Ajuste fino» da tono, saturación y luz.
+- **Color de materia:** desde Personalizar o el formulario de la materia. Se
+  guarda como ARGB opaco en el mismo `colorIndex` (≥ 0xFF000000), sin cambio
+  de esquema; los widgets de Kotlin lo reciben como entero negativo y lo usan
+  tal cual. «Color por defecto» lo devuelve a la paleta.
+- Columnas `temaPaleta`, `temaPapel` y `temaAcento` en la v6.
+- **Límite conocido:** los widgets de la pantalla de inicio siguen con los
+  colores del contrato (son XML generados): no siguen el tema de la app,
+  solo el color de cada materia.
+
+## 49. Menú radial al modo de Concepts
+
+**Pedido del usuario (2026-09-23):** «replantea el menú de navegación para
+que no sea tan simple», con la rueda radial de Concepts.
+
+- En teléfono la barra inferior se cambia por un botón central (el ícono de
+  la pantalla actual). Tocarlo abre un semicírculo con dos anillos: adentro
+  Hoy, Semana, Materias y Mapa; afuera Importar horario, Nueva materia,
+  Personalizar y Ajustes. Mantener y arrastrar resalta el sector bajo el dedo
+  y soltar lo elige, sin segundo toque. Atrás o tocar fuera lo cierra.
+- Los sectores entran escalonados; bajo «reducir movimiento» aparecen de una.
+  La navegación sigue sin háptica (lista `never` del contrato).
+- Desde `medium` sigue el riel lateral, con las cuatro acciones abajo.
+- `RadialGeometry` es la misma para el dibujo y el toque, y tiene test.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura

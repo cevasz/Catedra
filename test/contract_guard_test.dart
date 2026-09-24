@@ -20,6 +20,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Rutas que el guardia no mira, con el porqué de cada una.
 const _exemptions = <String, String>{
+  // La rueda de color es una ilustración con geometría propia (radios de
+  // anillo, grosor de cada paso) y el texto de cada muestra se pinta en negro
+  // o blanco según la muestra, que no es un color del tema.
+  'lib/features/customize/presentation/widgets/copic_wheel.dart':
+      'CustomPainter: geometría de la rueda y tinta según cada muestra',
+  // Un tema dibujado en miniatura, a escala: sus medidas son del dibujo, no
+  // espaciado de interfaz, y sus colores son los del tema que se muestra.
+  'lib/features/customize/presentation/widgets/theme_tile.dart':
+      'Miniatura a escala de un tema: medidas del dibujo',
   // Dibuja un erizo. Las coordenadas de un trazo no son espaciado de interfaz:
   // son la ilustración misma, y no hay token que las pueda nombrar.
   'lib/features/mascot/mascot_view.dart':

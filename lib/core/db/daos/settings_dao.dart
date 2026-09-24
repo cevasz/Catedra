@@ -61,6 +61,15 @@ class SettingsDao extends DatabaseAccessor<CatedraDatabase> with _$SettingsDaoMi
         UserSettingsCompanion(tema: Value(index)),
       );
 
+  /// El tema de color. Para `propio`, [paper] y [accent] son ARGB.
+  Future<void> setPalette(String id, {int? paper, int? accent}) => _write(
+        UserSettingsCompanion(
+          temaPaleta: Value(id),
+          temaPapel: Value(paper),
+          temaAcento: Value(accent),
+        ),
+      );
+
   Future<void> setMascotCorner(bool on) => _write(UserSettingsCompanion(mascotaEsquina: Value(on)));
 
   Future<void> setWakeAlarm(bool on) => _write(UserSettingsCompanion(alarmaDespertar: Value(on)));

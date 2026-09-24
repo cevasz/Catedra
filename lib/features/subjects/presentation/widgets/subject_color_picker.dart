@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../l10n/strings.g.dart';
 import '../../../../theme/motion.dart';
 import '../../../../theme/tokens.g.dart';
+import '../../../customize/presentation/widgets/color_wheel_sheet.dart';
 
 /// Los ocho colores de materia del contrato, en fila y seleccionables.
 ///
@@ -57,6 +59,46 @@ class SubjectColorPicker extends StatelessWidget {
               ),
             ),
           ),
+        // Cualquier otro color, desde la rueda (§48). Se guarda como ARGB en
+        // el mismo entero; si ya hay uno elegido, se ve aquí.
+        Semantics(
+          label: SCustomize.wheelTitle,
+          selected: SubjectPalette.isCustom(selected),
+          button: true,
+          child: InkWell(
+            onTap: () async {
+              final picked = await pickColorFromWheel(
+                context,
+                initial: SubjectPalette.isCustom(selected) ? SubjectPalette.at(selected) : null,
+              );
+              if (picked != null) onChanged(picked.toARGB32() | SubjectPalette.customThreshold);
+            },
+            borderRadius: BorderRadius.circular(RadiusTokens.full),
+            child: Container(
+              width: ComponentTokens.colorPickerSwatch,
+              height: ComponentTokens.colorPickerSwatch,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: SubjectPalette.isCustom(selected) ? SubjectPalette.at(selected) : null,
+                gradient: SubjectPalette.isCustom(selected)
+                    ? null
+                    : SweepGradient(colors: [
+                        for (final h in const [0, 60, 120, 180, 240, 300, 360])
+                          HSLColor.fromAHSL(1, h.toDouble(), 0.55, 0.55).toColor(),
+                      ]),
+                border: Border.all(
+                  color: SubjectPalette.isCustom(selected)
+                      ? ColorTokens.textPrimary.of(b)
+                      : ColorTokens.surfaceBorder.of(b),
+                  width: SubjectPalette.isCustom(selected) ? BorderTokens.subjectAccent : BorderTokens.hairline,
+                ),
+              ),
+              child: SubjectPalette.isCustom(selected)
+                  ? null
+                  : Icon(Icons.palette_outlined, size: 18, color: ColorTokens.textOnSubject.of(b)),
+            ),
+          ),
+        ),
       ],
     );
   }

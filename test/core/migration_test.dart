@@ -47,6 +47,8 @@ void main() {
     expect(s.rutaPieMin, isNull);
     expect(s.enCaminoDesde, isNull);
     expect(await db.tripsDao.count(), 0);
+    expect(s.temaPaleta, 'papiro', reason: 'nadie cambia de colores al actualizar');
+    expect(s.temaPapel, isNull);
 
     // Un viaje de 38 min queda guardado con el modo del ajuste (bus).
     final from = DateTime(2026, 9, 23, 7, 0);

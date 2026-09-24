@@ -1402,6 +1402,9 @@ final class Schema6 extends i0.VersionedSchema {
           _column_41,
           _column_42,
           _column_43,
+          _column_61,
+          _column_62,
+          _column_63,
           _column_44,
           _column_48,
           _column_49,
@@ -1421,9 +1424,9 @@ final class Schema6 extends i0.VersionedSchema {
         tableConstraints: [],
         columns: [
           _column_0,
-          _column_61,
-          _column_62,
-          _column_63,
+          _column_64,
+          _column_65,
+          _column_66,
         ],
         attachedDatabase: database,
       ),
@@ -1460,6 +1463,12 @@ class Shape12 extends i0.VersionedTable {
       columnsByName['home_lng']! as i1.GeneratedColumn<double>;
   i1.GeneratedColumn<int> get tema =>
       columnsByName['tema']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<String> get temaPaleta =>
+      columnsByName['tema_paleta']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get temaPapel =>
+      columnsByName['tema_papel']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get temaAcento =>
+      columnsByName['tema_acento']! as i1.GeneratedColumn<int>;
   i1.GeneratedColumn<int> get limiteFaltasPorDefecto =>
       columnsByName['limite_faltas_por_defecto']! as i1.GeneratedColumn<int>;
   i1.GeneratedColumn<int> get mascotaEsquina =>
@@ -1494,6 +1503,17 @@ i1.GeneratedColumn<int> _column_59(String aliasedName) =>
 i1.GeneratedColumn<int> _column_60(String aliasedName) =>
     i1.GeneratedColumn<int>('en_camino_modo', aliasedName, true,
         type: i1.DriftSqlType.int, $customConstraints: 'NULL');
+i1.GeneratedColumn<String> _column_61(String aliasedName) =>
+    i1.GeneratedColumn<String>('tema_paleta', aliasedName, false,
+        type: i1.DriftSqlType.string,
+        $customConstraints: 'NOT NULL DEFAULT \'papiro\'',
+        defaultValue: const i1.CustomExpression('\'papiro\''));
+i1.GeneratedColumn<int> _column_62(String aliasedName) =>
+    i1.GeneratedColumn<int>('tema_papel', aliasedName, true,
+        type: i1.DriftSqlType.int, $customConstraints: 'NULL');
+i1.GeneratedColumn<int> _column_63(String aliasedName) =>
+    i1.GeneratedColumn<int>('tema_acento', aliasedName, true,
+        type: i1.DriftSqlType.int, $customConstraints: 'NULL');
 
 class Shape13 extends i0.VersionedTable {
   Shape13({required super.source, required super.alias}) : super.aliased();
@@ -1507,13 +1527,13 @@ class Shape13 extends i0.VersionedTable {
       columnsByName['modo']! as i1.GeneratedColumn<int>;
 }
 
-i1.GeneratedColumn<int> _column_61(String aliasedName) =>
+i1.GeneratedColumn<int> _column_64(String aliasedName) =>
     i1.GeneratedColumn<int>('salida', aliasedName, false,
         type: i1.DriftSqlType.int, $customConstraints: 'NOT NULL');
-i1.GeneratedColumn<int> _column_62(String aliasedName) =>
+i1.GeneratedColumn<int> _column_65(String aliasedName) =>
     i1.GeneratedColumn<int>('llegada', aliasedName, false,
         type: i1.DriftSqlType.int, $customConstraints: 'NOT NULL');
-i1.GeneratedColumn<int> _column_63(String aliasedName) =>
+i1.GeneratedColumn<int> _column_66(String aliasedName) =>
     i1.GeneratedColumn<int>('modo', aliasedName, false,
         type: i1.DriftSqlType.int, $customConstraints: 'NOT NULL');
 i0.MigrationStepWithVersion migrationSteps({

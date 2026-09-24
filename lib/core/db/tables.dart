@@ -190,6 +190,12 @@ class UserSettings extends Table {
 
   /// 0 auto, 1 claro, 2 oscuro. Coincide con ThemeMode.
   IntColumn get tema => integer().withDefault(const Constant(0))();
+
+  /// El tema de color (§48): `papiro` (el contrato), uno prediseñado o
+  /// `propio`, que sale de dos colores de la rueda guardados como ARGB.
+  TextColumn get temaPaleta => text().withDefault(const Constant('papiro'))();
+  IntColumn get temaPapel => integer().nullable()();
+  IntColumn get temaAcento => integer().nullable()();
   IntColumn get limiteFaltasPorDefecto => integer().withDefault(const Constant(6))();
 
   /// Erizógenes en la esquina de la app, reaccionando a lo que haces.

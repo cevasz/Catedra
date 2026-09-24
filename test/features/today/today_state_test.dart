@@ -58,6 +58,7 @@ const _settings = UserSetting(
   avisoEvaluacionMin: 20 * 60,
   detectarCasa: false,
   aprenderTrayecto: true,
+  temaPaleta: 'papiro',
 );
 
 /// Monta el provider de Hoy con clases, hora y ajustes fijos. Nada toca la BD.

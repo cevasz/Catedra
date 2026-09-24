@@ -625,6 +625,22 @@ class UserSettings extends Table with TableInfo {
       requiredDuringInsert: false,
       $customConstraints: 'NOT NULL DEFAULT 0',
       defaultValue: const CustomExpression('0'));
+  late final GeneratedColumn<String> temaPaleta = GeneratedColumn<String>(
+      'tema_paleta', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      $customConstraints: 'NOT NULL DEFAULT \'papiro\'',
+      defaultValue: const CustomExpression('\'papiro\''));
+  late final GeneratedColumn<int> temaPapel = GeneratedColumn<int>(
+      'tema_papel', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      $customConstraints: 'NULL');
+  late final GeneratedColumn<int> temaAcento = GeneratedColumn<int>(
+      'tema_acento', aliasedName, true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      $customConstraints: 'NULL');
   late final GeneratedColumn<int> limiteFaltasPorDefecto = GeneratedColumn<int>(
       'limite_faltas_por_defecto', aliasedName, false,
       type: DriftSqlType.int,
@@ -686,6 +702,9 @@ class UserSettings extends Table with TableInfo {
         homeLat,
         homeLng,
         tema,
+        temaPaleta,
+        temaPapel,
+        temaAcento,
         limiteFaltasPorDefecto,
         mascotaEsquina,
         alarmaDespertar,

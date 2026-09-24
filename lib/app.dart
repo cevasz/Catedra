@@ -12,6 +12,7 @@ import 'features/subjects/application/subjects_providers.dart';
 import 'features/widgets/home_widget_sync.dart';
 import 'l10n/strings.g.dart';
 import 'theme/app_theme.dart';
+import 'theme/tokens.g.dart';
 import 'theme/transitions.dart';
 
 class CatedraApp extends ConsumerWidget {
@@ -27,12 +28,17 @@ class CatedraApp extends ConsumerWidget {
     // Android decidió con la app cerrada.
     ref.watch(homeCheckSyncProvider);
     ref.watch(homeCheckVerdictsProvider);
+    // El tema de color se instala antes de construir el ThemeData: los
+    // ColorTokens lo consultan por rol (§48).
+    final palette = ref.watch(paletteProvider);
+    ThemedColor.palette = palette;
     return MaterialApp(
       title: SOnboarding.brand,
       debugShowCheckedModeBanner: false,
       // Los dos temas existen desde el día uno; no hay un tema «principal».
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
+
       themeMode: ref.watch(themeModeProvider),
       // La app es de un país y un idioma. Sin esto, los selectores de fecha y
       // hora de Material salen en inglés aunque el resto esté en español.

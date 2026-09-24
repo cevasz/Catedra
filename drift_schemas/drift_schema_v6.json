@@ -1055,6 +1055,36 @@
             "dsl_features": []
           },
           {
+            "name": "tema_paleta",
+            "getter_name": "temaPaleta",
+            "moor_type": "string",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": "const CustomExpression('\\'papiro\\'')",
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "tema_papel",
+            "getter_name": "temaPapel",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
+            "name": "tema_acento",
+            "getter_name": "temaAcento",
+            "moor_type": "int",
+            "nullable": true,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
             "name": "limite_faltas_por_defecto",
             "getter_name": "limiteFaltasPorDefecto",
             "moor_type": "int",
@@ -1292,7 +1322,7 @@
       "sql": [
         {
           "dialect": "sqlite",
-          "sql": "CREATE TABLE IF NOT EXISTS \"user_settings\" (\"id\" INTEGER NOT NULL DEFAULT 1, \"buffer_minutos\" INTEGER NOT NULL DEFAULT 5, \"modo_transporte\" INTEGER NOT NULL DEFAULT 0, \"trayecto_minutos\" INTEGER NULL, \"direccion_casa\" TEXT NULL, \"aprender_trayecto\" INTEGER NOT NULL DEFAULT 1 CHECK (\"aprender_trayecto\" IN (0, 1)), \"ruta_pie_min\" INTEGER NULL, \"ruta_carro_min\" INTEGER NULL, \"en_camino_desde\" INTEGER NULL, \"en_camino_modo\" INTEGER NULL, \"detectar_casa\" INTEGER NOT NULL DEFAULT 0 CHECK (\"detectar_casa\" IN (0, 1)), \"home_lat\" REAL NULL, \"home_lng\" REAL NULL, \"tema\" INTEGER NOT NULL DEFAULT 0, \"limite_faltas_por_defecto\" INTEGER NOT NULL DEFAULT 6, \"mascota_esquina\" INTEGER NOT NULL DEFAULT 1 CHECK (\"mascota_esquina\" IN (0, 1)), \"alarma_despertar\" INTEGER NOT NULL DEFAULT 1 CHECK (\"alarma_despertar\" IN (0, 1)), \"alarma_despertar_min\" INTEGER NOT NULL DEFAULT 60, \"alarma_salir\" INTEGER NOT NULL DEFAULT 1 CHECK (\"alarma_salir\" IN (0, 1)), \"alarma_evaluaciones\" INTEGER NOT NULL DEFAULT 1 CHECK (\"alarma_evaluaciones\" IN (0, 1)), \"aviso_evaluacion_min\" INTEGER NOT NULL DEFAULT 1200, PRIMARY KEY (\"id\"));"
+          "sql": "CREATE TABLE IF NOT EXISTS \"user_settings\" (\"id\" INTEGER NOT NULL DEFAULT 1, \"buffer_minutos\" INTEGER NOT NULL DEFAULT 5, \"modo_transporte\" INTEGER NOT NULL DEFAULT 0, \"trayecto_minutos\" INTEGER NULL, \"direccion_casa\" TEXT NULL, \"aprender_trayecto\" INTEGER NOT NULL DEFAULT 1 CHECK (\"aprender_trayecto\" IN (0, 1)), \"ruta_pie_min\" INTEGER NULL, \"ruta_carro_min\" INTEGER NULL, \"en_camino_desde\" INTEGER NULL, \"en_camino_modo\" INTEGER NULL, \"detectar_casa\" INTEGER NOT NULL DEFAULT 0 CHECK (\"detectar_casa\" IN (0, 1)), \"home_lat\" REAL NULL, \"home_lng\" REAL NULL, \"tema\" INTEGER NOT NULL DEFAULT 0, \"tema_paleta\" TEXT NOT NULL DEFAULT 'papiro', \"tema_papel\" INTEGER NULL, \"tema_acento\" INTEGER NULL, \"limite_faltas_por_defecto\" INTEGER NOT NULL DEFAULT 6, \"mascota_esquina\" INTEGER NOT NULL DEFAULT 1 CHECK (\"mascota_esquina\" IN (0, 1)), \"alarma_despertar\" INTEGER NOT NULL DEFAULT 1 CHECK (\"alarma_despertar\" IN (0, 1)), \"alarma_despertar_min\" INTEGER NOT NULL DEFAULT 60, \"alarma_salir\" INTEGER NOT NULL DEFAULT 1 CHECK (\"alarma_salir\" IN (0, 1)), \"alarma_evaluaciones\" INTEGER NOT NULL DEFAULT 1 CHECK (\"alarma_evaluaciones\" IN (0, 1)), \"aviso_evaluacion_min\" INTEGER NOT NULL DEFAULT 1200, PRIMARY KEY (\"id\"));"
         }
       ]
     },

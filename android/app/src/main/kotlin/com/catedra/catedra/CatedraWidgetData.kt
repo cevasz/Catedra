@@ -211,9 +211,14 @@ class WidgetData(
             R.color.catedra_subject_6, R.color.catedra_subject_7,
         )
 
-        /** Igual que SubjectPalette.at: el índice se normaliza, nunca revienta. */
+        /**
+         * Igual que SubjectPalette.at: el índice se normaliza, nunca revienta.
+         * Un color de la rueda llega como ARGB opaco (≥ 0xFF000000 en Dart);
+         * `getInt` se queda con los 32 bits bajos, que en Kotlin es negativo.
+         */
         fun subjectColor(context: Context, index: Int): Int =
-            ContextCompat.getColor(context, subjectColors[Math.floorMod(index, subjectColors.size)])
+            if (index < 0) index
+            else ContextCompat.getColor(context, subjectColors[Math.floorMod(index, subjectColors.size)])
 
         /**
          * Erizógenes en la pose pedida, pintado por Flutter al arrancar la app
