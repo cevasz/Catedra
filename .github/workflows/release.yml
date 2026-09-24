@@ -82,6 +82,8 @@ jobs:
           # incluido) y la descarga pesa un tercio que el APK universal.
           flutter build apk --release --target-platform android-arm64 --build-name="$NAME" --build-number="$CODE"
           cp build/app/outputs/flutter-apk/app-release.apk catedra.apk
+          # checkout deja el tag como ligero (sin notas): se trae el anotado.
+          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
           NOTES=$(git tag -l --format='%(contents)' "$TAG" | sed '/^-----BEGIN/,$d')
           jq -n \
             --argjson code "$CODE" \
