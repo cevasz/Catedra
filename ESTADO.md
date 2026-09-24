@@ -1,12 +1,23 @@
-# Estado del programa · 22 de septiembre de 2026 (tarde)
+# Estado del programa · 23 de septiembre de 2026 (noche)
 
 Cátedra es una app Flutter (Riverpod + Drift, offline primero) para
 estudiantes universitarios en Colombia. Este archivo dice qué funciona hoy,
 qué falta y en qué orden conviene seguir. Las razones de cada decisión están
 en `DESIGN_DECISIONS.md`; la estructura, en `ARCHITECTURE.md`.
 
-**Cifras:** 158 tests en verde, `flutter analyze` sin errores ni avisos,
-esquema de base v3.
+**Cifras:** 270 tests en verde, `flutter analyze` sin errores ni avisos,
+esquema de base v6.
+
+## Hitos del 23 de septiembre
+
+| Hito | Estado | Dónde |
+|---|---|---|
+| H1 · Actualizaciones en línea: publicar por GitHub Releases | Código listo desde el §43; falta publicar la primera versión (`tool/publicar.sh`) | §43 |
+| H2 · Llegada real y trayecto que aprende (OSRM + viajes medidos) | Hecho | §47 |
+| H3 · Menú radial al modo de Concepts | Hecho | §49 |
+| H4 · Personalizar: 7 temas en claro/oscuro, tema propio y rueda COPIC, color por materia | Hecho | §48 |
+| H5 · Retícula por horas y calendarios .ics | Hecho | §50 |
+| H6 · Catálogo de widgets posibles | Hecho, sin construir | `WIDGETS.md` |
 
 ## Funciona
 
