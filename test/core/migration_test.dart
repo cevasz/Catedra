@@ -24,12 +24,43 @@ void main() {
     verifier = SchemaVerifier(GeneratedHelper());
   });
 
-  test('el esquema en código sigue siendo idéntico al volcado de la v5', () async {
-    final connection = await verifier.startAt(5);
+  test('el esquema en código sigue siendo idéntico al volcado de la v6', () async {
+    final connection = await verifier.startAt(6);
     final db = CatedraDatabase.forTesting(connection);
     addTearDown(db.close);
 
-    await verifier.migrateAndValidate(db, 5);
+    await verifier.migrateAndValidate(db, 6);
+  });
+
+  test('v5 → v6: el trayecto aprende sin mover la hora de salida de nadie', () async {
+    final schema = await verifier.schemaAt(5);
+    schema.rawDatabase.execute(
+      'INSERT INTO user_settings (id, trayecto_minutos, modo_transporte) VALUES (1, 30, 1)',
+    );
+    final db = CatedraDatabase.forTesting(schema.newConnection());
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(db, 6);
+
+    final s = await db.settingsDao.get();
+    expect(s.trayectoMinutos, 30);
+    expect(s.aprenderTrayecto, isTrue);
+    expect(s.rutaPieMin, isNull);
+    expect(s.enCaminoDesde, isNull);
+    expect(await db.tripsDao.count(), 0);
+
+    // Un viaje de 38 min queda guardado con el modo del ajuste (bus).
+    final from = DateTime(2026, 9, 23, 7, 0);
+    await db.tripsDao.start(from, s.modoTransporte);
+    expect(await db.tripsDao.arrive(from.add(const Duration(minutes: 38))), 38);
+    final trips = await db.tripsDao.watchRecent(DateTime(2026, 9, 24)).first;
+    expect(trips.single.minutes, 38);
+    expect((await db.settingsDao.get()).enCaminoDesde, isNull);
+
+    // «Llegué» sin «Ya voy», o un viaje de un minuto, no guardan nada.
+    expect(await db.tripsDao.arrive(from), isNull);
+    await db.tripsDao.start(from, s.modoTransporte);
+    expect(await db.tripsDao.arrive(from.add(const Duration(minutes: 1))), isNull);
+    expect(await db.tripsDao.count(), 1);
   });
 
   test('v4 → v5: «anotar falta si sigo en casa» nace apagado y la casa se queda', () async {
@@ -39,7 +70,7 @@ void main() {
     );
     final db = CatedraDatabase.forTesting(schema.newConnection());
     addTearDown(db.close);
-    await verifier.migrateAndValidate(db, 5);
+    await verifier.migrateAndValidate(db, 6);
 
     final s = await db.settingsDao.get();
     expect(s.detectarCasa, isFalse);
@@ -133,7 +164,7 @@ void main() {
     // Fuerza la apertura real: sin una consulta, `onCreate` no llega a correr.
     await db.customSelect('SELECT 1').get();
 
-    expect(db.schemaVersion, 5);
+    expect(db.schemaVersion, 6);
   });
 
   test('onCreate deja la fila única de ajustes lista', () async {

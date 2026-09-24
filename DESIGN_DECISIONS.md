@@ -952,6 +952,37 @@ Probado en el teléfono (2026-09-23):
 - **Alarmas «Salir» para todas las clases**: una alarma semanal no sabe si
   ese día fuiste a la anterior; perder un aviso es peor que uno de más.
 
+## 47. La llegada se calcula de verdad y el trayecto aprende
+
+**Pedido del usuario (2026-09-23):** «no se está calculando correctamente en
+base al tiempo estimado de llegada que puedo seleccionar libremente», «¿usas
+la API de Maps?» y «quiero que el cálculo de llegada vaya mejorando con el
+tiempo». Elegido: OSRM como estimado inicial y aprender de los viajes.
+
+- **El fallo:** Hoy nunca calculaba la hora de llegada. Decía «llegas {buffer}
+  antes» aunque ya fuera tarde, y «justo» en cuanto pasaba la hora de salir;
+  el widget sí hacía la cuenta. Ahora `DeparturePlan.estimatedArrival` es la
+  única cuenta: saliendo a tiempo, inicio − margen; pasada la hora de salir,
+  ahora + trayecto. Hoy dice «35 min en bus · llegas 7:55, 5 min antes» o «Si
+  sales ya, llegas 8:07 · 7 min tarde».
+- **No hay API de Google Maps.** El número de partida es, en orden: el que la
+  persona fija en Ajustes, la ruta por calles de casa al campus (OSRM en
+  routing.openstreetmap.de, sin clave; el campus es el promedio de los
+  salones ubicados) o la tabla del modo. OSRM no sabe de tráfico ni de buses:
+  el carro se infla ×1,35 + 4 min y el bus es carro ×1,5 + 10 min.
+- **Aprende (`TravelEstimator`):** «Ya voy» saliendo de casa empieza a medir,
+  «Llegué» cierra el viaje (tabla `Trips`, v6). El estimado mezcla el número
+  de partida (vale como 3 viajes) con los viajes del modo, con más peso a lo
+  reciente (vida media de 45 días), al mismo día de la semana y a la misma
+  franja (×1,5 cada uno). Con 4 viajes o más descarta los que se alejan de la
+  mediana, y si varían mucho suma medio desvío (máximo 10 min): llegar antes
+  cuesta menos que llegar tarde. Viajes de menos de 3 o más de 180 min no
+  cuentan, y uno sin cerrar en 3 h se descarta.
+- Hoy y los widgets usan el trayecto del día y la franja de cada clase. Las
+  alarmas semanales usan el general. Ajustes muestra el número y de dónde
+  sale («Aprendido de 7 viajes · partía de 30 min»), deja apagar el
+  aprendizaje y olvidar los viajes.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura

@@ -3,7 +3,9 @@ import 'package:catedra/core/db/database.dart';
 import 'package:catedra/core/providers.dart';
 import 'package:catedra/domain/attendance/attendance.dart';
 import 'package:catedra/domain/departure/departure.dart';
+import 'package:catedra/domain/departure/travel_estimator.dart';
 import 'package:catedra/features/today/application/today_providers.dart';
+import 'package:catedra/features/travel/application/travel_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -55,16 +57,23 @@ const _settings = UserSetting(
   alarmaEvaluaciones: true,
   avisoEvaluacionMin: 20 * 60,
   detectarCasa: false,
+  aprenderTrayecto: true,
 );
 
 /// Monta el provider de Hoy con clases, hora y ajustes fijos. Nada toca la BD.
-Future<TodayState> _state(List<DayClass> classes, {required int hour, required int minute}) async {
+Future<TodayState> _state(
+  List<DayClass> classes, {
+  required int hour,
+  required int minute,
+  List<TripSample> trips = const [],
+}) async {
   final now = DateTime(_day.year, _day.month, _day.day, hour, minute);
   final container = ProviderContainer(overrides: [
     todayProvider.overrideWith((ref) => _day),
     todayClassesProvider.overrideWith((ref) => Stream.value(classes)),
     clockProvider.overrideWith((ref) => Stream.value(now)),
     settingsProvider.overrideWith((ref) => Stream.value(_settings)),
+    recentTripsProvider.overrideWith((ref) => Stream.value(trips)),
   ]);
   addTearDown(container.dispose);
 
@@ -73,11 +82,31 @@ Future<TodayState> _state(List<DayClass> classes, {required int hour, required i
   await container.read(todayClassesProvider.future);
   await container.read(clockProvider.future);
   await container.read(settingsProvider.future);
+  await container.read(recentTripsProvider.future);
   return container.read(todayStateProvider).requireValue;
 }
 
 void main() {
   group('todayStateProvider', () {
+    test('los viajes medidos corrigen el trayecto y la hora de salir (§47)', () async {
+      // Bus con la tabla (35 min) y buffer 4: salida 7:21 para las 8:00.
+      final plain = await _state([_clase(id: 1, inicio: 480, fin: 600)], hour: 6, minute: 0);
+      expect(plain.plan!.leaveAt.hhmm, '7:21');
+      // Diez viajes de 50 min los martes a las 7: la salida se adelanta.
+      final learned = await _state(
+        [_clase(id: 1, inicio: 480, fin: 600)],
+        hour: 6,
+        minute: 0,
+        trips: [
+          for (var w = 1; w <= 10; w++)
+            TripSample(leftAt: _day.subtract(Duration(days: 7 * w)).add(const Duration(hours: 7)), minutes: 50, mode: TransportMode.bus),
+        ],
+      );
+      expect(learned.plan!.travelMinutes, greaterThanOrEqualTo(45));
+      expect(learned.plan!.leaveAt < plain.plan!.leaveAt, isTrue);
+      expect(learned.plan!.estimatedArrival.hhmm, '7:56');
+    });
+
     test('la próxima es la primera que no ha terminado', () async {
       final s = await _state(
         [_clase(id: 1, inicio: 480, fin: 600), _clase(id: 2, inicio: 840, fin: 960)],

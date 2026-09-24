@@ -27,6 +27,7 @@ import '../../mascot/mascot_view.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../shell/presentation/app_shell.dart';
 import '../application/today_providers.dart';
+import 'widgets/trip_strip.dart';
 import 'widgets/countdown_ring.dart';
 import 'widgets/day_timeline.dart';
 import 'widgets/odometer_minutes.dart';
@@ -137,6 +138,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                           header,
                           if (companion != null) companion,
                           SizedBox(height: SpaceTokens.xl),
+                          const TripStrip(),
                           cards,
                           SizedBox(height: SpaceTokens.xxl),
                         ],
@@ -173,6 +175,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                   header,
                   if (companion != null) companion,
                   SizedBox(height: SpaceTokens.xl),
+                  const TripStrip(),
                   cards,
                   if (!s.isEmpty) ...[
                     SizedBox(height: SpaceTokens.xl),
@@ -429,7 +432,14 @@ class _NextClassCard extends ConsumerWidget {
               // PressScaleButton: micro-feedback visual al presionar «Ya voy».
               PressScaleButton(
                 child: FilledButton(
-                  onPressed: () => _mark(ref, next, SessionStatus.asistio),
+                  onPressed: () {
+                    // Saliendo de casa, «Ya voy» también empieza a medir el
+                    // viaje: «Llegué» lo cierra y el trayecto aprende (§47).
+                    if (plan.fromHome) {
+                      unawaited(ref.read(tripsDaoProvider).start(state.now, plan.mode));
+                    }
+                    _mark(ref, next, SessionStatus.asistio);
+                  },
                   style: urgent
                       ? FilledButton.styleFrom(
                           backgroundColor: ColorTokens.accentUrgent.of(b),
@@ -461,22 +471,29 @@ class _NextClassCard extends ConsumerWidget {
     return code == null ? hora : SToday.roomLine(code: code, hora: hora);
   }
 
-  /// Cómo llegas: el trayecto con el modo real («30 min en bus»), o «Ya
-  /// estás en la U» si vienes de una clase anterior. Pasada la hora de
-  /// inicio, hasta cuándo te dejan entrar.
+  /// Cómo llegas y a qué hora. Saliendo a tiempo: «35 min en bus · llegas
+  /// 7:55, 5 min antes». Pasada la hora de salir, la cuenta es desde ahora:
+  /// «Si sales ya, llegas 8:07 · 7 min tarde», la misma de los widgets. Desde
+  /// la U, solo el margen. Pasado el inicio, hasta cuándo te dejan entrar.
   static String _etaLine(DeparturePlan plan, MinutesOfDay now) {
     if (now >= plan.classStart) return SToday.lateWithinTolerance(hora: plan.toleranceEnd.hhmm);
-    final margin = TimeSpans.minutes(plan.arrivalMargin);
+    final hora = plan.estimatedArrival.hhmm;
+    final margin = plan.arrivalMargin;
+    final m = TimeSpans.minutes(margin.abs());
     if (!plan.fromHome) {
-      return plan.isUrgent ? SToday.fromCampusTight : SToday.fromCampus(m: margin);
+      return margin > 0 ? SToday.fromCampus(m: m) : SToday.fromCampusTight;
+    }
+    if (plan.leavingLate || margin <= 0) {
+      if (margin > 0) return SToday.ifLeaveNowEarly(hora: hora, m: m);
+      if (margin == 0) return SToday.ifLeaveNowOnTime(hora: hora);
+      return SToday.ifLeaveNowLate(hora: hora, m: m);
     }
     final modo = switch (plan.mode) {
       TransportMode.walk => SToday.byWalk,
       TransportMode.bus => SToday.byBus,
       TransportMode.car => SToday.byCar,
     };
-    final dur = TimeSpans.minutes(plan.travelMinutes);
-    return plan.isUrgent ? SToday.walkEtaTight(dur: dur, modo: modo) : SToday.walkEta(dur: dur, modo: modo, m: margin);
+    return SToday.walkEta(dur: TimeSpans.minutes(plan.travelMinutes), modo: modo, hora: hora, m: m);
   }
 
   /// El anillo se vacía a medida que se consume el margen. La ventana sale del

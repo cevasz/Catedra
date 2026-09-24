@@ -44,6 +44,13 @@ class SettingsDao extends DatabaseAccessor<CatedraDatabase> with _$SettingsDaoMi
         UserSettingsCompanion(trayectoMinutos: Value(minutos)),
       );
 
+  Future<void> setLearnTravel(bool on) => _write(UserSettingsCompanion(aprenderTrayecto: Value(on)));
+
+  /// Lo que dijo la ruta por calles, en minutos. Null borra el cálculo.
+  Future<void> setRouteMinutes({int? walk, int? car}) => _write(
+        UserSettingsCompanion(rutaPieMin: Value(walk), rutaCarroMin: Value(car)),
+      );
+
   Future<void> setDefaultAbsenceLimit(int limite) => _write(
         UserSettingsCompanion(limiteFaltasPorDefecto: Value(limite)),
       );

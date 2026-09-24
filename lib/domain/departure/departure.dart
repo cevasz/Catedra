@@ -51,9 +51,20 @@ class DeparturePlan {
   final DepartureUrgency urgency;
   final TransportMode mode;
 
-  /// Cuánto antes de la clase llegas si sales a tiempo. Es el buffer, y es lo
-  /// que la pantalla llama «llegas 4 antes».
-  int get arrivalMargin => bufferMinutes;
+  /// Si ya se pasó la hora de salir: desde aquí la llegada cuenta desde
+  /// ahora, no desde la hora ideal.
+  bool get leavingLate => minutesUntilLeave < 0;
+
+  /// A qué hora llegas. Si todavía no es hora de salir, llegas cuando lo
+  /// planeado (inicio − margen). Si ya pasó, «si sales ya»: ahora + trayecto.
+  /// Es la misma cuenta que hacen los widgets.
+  MinutesOfDay get estimatedArrival =>
+      leaveAt.plus(travelMinutes + (leavingLate ? -minutesUntilLeave : 0));
+
+  /// Minutos entre la llegada estimada y el inicio: positivo si llegas antes,
+  /// negativo si llegas tarde. Saliendo a tiempo es el buffer («llegas 4
+  /// antes»); saliendo tarde se come primero el buffer y luego la clase.
+  int get arrivalMargin => estimatedArrival.difference(classStart);
 
   bool get isUrgent =>
       urgency == DepartureUrgency.now || urgency == DepartureUrgency.late_;

@@ -14,6 +14,7 @@ import 'daos/schedule_dao.dart';
 import 'daos/settings_dao.dart';
 import 'daos/subjects_dao.dart';
 import 'daos/tasks_dao.dart';
+import 'daos/trips_dao.dart';
 import 'schema_versions.dart';
 import 'tables.dart';
 
@@ -30,8 +31,9 @@ part 'database.g.dart';
     Evaluations,
     Tasks,
     UserSettings,
+    Trips,
   ],
-  daos: [ScheduleDao, SubjectsDao, SettingsDao, TasksDao],
+  daos: [ScheduleDao, SubjectsDao, SettingsDao, TasksDao, TripsDao],
 )
 class CatedraDatabase extends _$CatedraDatabase {
   CatedraDatabase() : super(_open());
@@ -40,7 +42,7 @@ class CatedraDatabase extends _$CatedraDatabase {
   CatedraDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -85,6 +87,18 @@ class CatedraDatabase extends _$CatedraDatabase {
           // a mano porque pide ubicación en segundo plano.
           from4To5: (m, schema) async {
             await m.addColumn(schema.userSettings, schema.userSettings.detectarCasa);
+          },
+          // v6: el trayecto aprende. Viajes medidos, la ruta por calles y el
+          // viaje en curso; todo nulo o encendido sin datos, así que la hora
+          // de salida de nadie cambia al actualizar.
+          from5To6: (m, schema) async {
+            await m.createTable(schema.trips);
+            final s = schema.userSettings;
+            await m.addColumn(s, s.aprenderTrayecto);
+            await m.addColumn(s, s.rutaPieMin);
+            await m.addColumn(s, s.rutaCarroMin);
+            await m.addColumn(s, s.enCaminoDesde);
+            await m.addColumn(s, s.enCaminoModo);
           },
         ),
         beforeOpen: (details) async {

@@ -170,4 +170,54 @@ void main() {
       expect(DeparturePlanner.ringProgress(planAt(9, 0), windowMinutes: 0), 1);
     });
   });
+
+  group('Llegada estimada', () {
+    DeparturePlan at(int h, int m, {int travel = 30, int buffer = 5}) => DeparturePlanner.plan(
+          classStart: MinutesOfDay.of(8, 0),
+          now: MinutesOfDay.of(h, m),
+          travelMinutes: travel,
+          bufferMinutes: buffer,
+          mode: TransportMode.bus,
+        );
+
+    test('saliendo a tiempo llegas con el margen', () {
+      final p = at(7, 0);
+      expect(p.leaveAt.hhmm, '7:25');
+      expect(p.estimatedArrival.hhmm, '7:55');
+      expect(p.arrivalMargin, 5);
+      expect(p.leavingLate, isFalse);
+    });
+
+    test('el trayecto que la persona elige mueve la llegada', () {
+      expect(at(7, 0, travel: 45).leaveAt.hhmm, '7:10');
+      expect(at(7, 0, travel: 45).estimatedArrival.hhmm, '7:55');
+    });
+
+    test('saliendo tarde se come primero el margen', () {
+      // Salida 7:25; a las 7:28, llegas 7:58: aún 2 min antes.
+      final p = at(7, 28);
+      expect(p.leavingLate, isTrue);
+      expect(p.estimatedArrival.hhmm, '7:58');
+      expect(p.arrivalMargin, 2);
+    });
+
+    test('y después la clase: «si sales ya, llegas 8:07 · 7 min tarde»', () {
+      final p = at(7, 37);
+      expect(p.estimatedArrival.hhmm, '8:07');
+      expect(p.arrivalMargin, -7);
+    });
+
+    test('desde la U solo cuenta el margen', () {
+      final p = DeparturePlanner.plan(
+        classStart: MinutesOfDay.of(10, 0),
+        now: MinutesOfDay.of(9, 58),
+        travelMinutes: 30,
+        bufferMinutes: 5,
+        mode: TransportMode.walk,
+        fromHome: false,
+      );
+      expect(p.estimatedArrival.hhmm, '9:58');
+      expect(p.arrivalMargin, 2);
+    });
+  });
 }

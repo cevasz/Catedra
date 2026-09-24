@@ -8,16 +8,16 @@ import '../../../core/platform/alarm_channel.dart';
 import '../../../core/providers.dart';
 import '../../../core/time/minutes_of_day.dart';
 import '../../../domain/alarms/alarm_planner.dart';
-import '../../../domain/departure/departure.dart';
 import '../../../l10n/strings.g.dart';
 import '../../tasks/application/tasks_providers.dart';
+import '../../travel/application/travel_providers.dart';
 
 final alarmChannelProvider = Provider<AlarmChannel>((ref) => const AlarmChannel());
 
 /// Minutos entre inicio de clase y hora de salir: trayecto + buffer, igual
-/// que Hoy y los widgets.
-int leaveOffsetOf(({TransportMode mode, int? travel, int buffer}) s) =>
-    DeparturePlanner.travelMinutesFor(s.mode, s.travel) + s.buffer;
+/// que Hoy y los widgets. El trayecto es el general del modelo (§47): una
+/// alarma semanal no cambia de hora según el día.
+int leaveOffsetOf(TravelModel model, int buffer) => model.overall.minutes + buffer;
 
 /// Qué alarmas saldrían hoy con el horario y los ajustes actuales.
 Future<List<(PlannedAlarm, String)>> plannedClockAlarms(Ref ref) async {
@@ -33,11 +33,10 @@ Future<List<(PlannedAlarm, String)>> plannedClockAlarms(Ref ref) async {
           end: session.horaFin,
         ),
     ],
-    leaveOffset: leaveOffsetOf((
-      mode: settings.modoTransporte,
-      travel: settings.trayectoMinutos,
-      buffer: settings.bufferMinutos,
-    )),
+    leaveOffset: leaveOffsetOf(
+      TravelModel.from(settings, await ref.read(recentTripsProvider.future), ref.read(todayProvider)),
+      settings.bufferMinutos,
+    ),
     wake: settings.alarmaDespertar,
     wakeMinutes: settings.alarmaDespertarMin,
     // Sin `travelMinutes`: una alarma semanal no sabe si ese día fuiste a la

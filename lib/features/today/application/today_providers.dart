@@ -6,6 +6,7 @@ import '../../../core/time/minutes_of_day.dart';
 import '../../../domain/attendance/attendance.dart';
 import '../../../domain/departure/departure.dart';
 import '../../../domain/schedule/day_gaps.dart';
+import '../../travel/application/travel_providers.dart';
 
 /// Todo lo que la vista Hoy necesita saber, ya resuelto. La pantalla no hace
 /// cálculos: los pide.
@@ -74,6 +75,7 @@ final todayStateProvider = Provider<AsyncValue<TodayState>>((ref) {
   final classes = ref.watch(todayClassesProvider);
   final clock = ref.watch(clockProvider);
   final settings = ref.watch(settingsProvider).valueOrNull;
+  final travelModel = ref.watch(travelModelProvider);
 
   return classes.whenData((list) {
     final now = clock.valueOrNull ?? DateTime.now();
@@ -81,6 +83,14 @@ final todayStateProvider = Provider<AsyncValue<TodayState>>((ref) {
 
     final next = _nextClass(list, nowMinutes);
     final mode = settings?.modoTransporte ?? TransportMode.walk;
+    final buffer = settings?.bufferMinutos ?? DeparturePlanner.defaultBufferMinutes;
+    // El trayecto de Ajustes (o la ruta, o la tabla) corregido con los viajes
+    // medidos de este día de la semana y esta franja (§47).
+    final travel = next == null
+        ? 0
+        : travelModel
+            .forClass(weekday: now.weekday, classStart: MinutesOfDay(next.session.horaInicio), buffer: buffer)
+            .minutes;
 
     return TodayState(
       classes: list,
@@ -93,13 +103,10 @@ final todayStateProvider = Provider<AsyncValue<TodayState>>((ref) {
           : DeparturePlanner.plan(
               classStart: MinutesOfDay(next.session.horaInicio),
               now: nowMinutes,
-              // Sin ubicación todavía (Fase 4): el trayecto que la persona
-              // puso en Ajustes o, si no lo puso, el estimado del modo.
-              travelMinutes: DeparturePlanner.travelMinutesFor(mode, settings?.trayectoMinutos),
-              bufferMinutes:
-                  settings?.bufferMinutos ?? DeparturePlanner.defaultBufferMinutes,
+              travelMinutes: travel,
+              bufferMinutes: buffer,
               mode: mode,
-              fromHome: _fromHome(list, next, DeparturePlanner.travelMinutesFor(mode, settings?.trayectoMinutos)),
+              fromHome: _fromHome(list, next, travel),
             ),
     );
   });

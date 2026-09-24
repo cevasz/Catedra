@@ -17,6 +17,7 @@ import '../../l10n/strings.g.dart';
 import '../../theme/tokens.g.dart';
 import '../mascot/mascot_view.dart';
 import '../tasks/application/tasks_providers.dart';
+import '../travel/application/travel_providers.dart';
 
 /// Nombres de las clases Kotlin de los dos widgets.
 const List<String> kHomeWidgetProviders = ['NextClassWidgetProvider', 'TodayWidgetProvider', 'PendingWidgetProvider'];
@@ -67,6 +68,7 @@ final homeWidgetSyncProvider = Provider<void>((ref) {
 
   ref.listen(_upcomingProvider, (_, __) => schedule(), fireImmediately: true);
   ref.listen(settingsProvider, (_, __) => schedule());
+  ref.listen(recentTripsProvider, (_, __) => schedule());
   ref.listen(pendingProvider, (_, __) => schedule());
   ref.onDispose(() => debounce?.cancel());
 });
@@ -75,9 +77,17 @@ Future<void> _push(Ref ref) async {
   final classes = ref.read(_upcomingProvider).valueOrNull;
   if (classes == null) return;
   final settings = ref.read(settingsProvider).valueOrNull;
-  final mode = settings?.modoTransporte ?? TransportMode.walk;
-  final travel = DeparturePlanner.travelMinutesFor(mode, settings?.trayectoMinutos);
   final buffer = settings?.bufferMinutos ?? DeparturePlanner.defaultBufferMinutes;
+  final model = ref.read(travelModelProvider);
+  final travel = model.overall.minutes;
+  // Cada clase con su trayecto: el aprendido de su día y su franja (§47).
+  int travelOf(DayClass c) => model
+      .forClass(
+        weekday: c.instance.fecha.weekday,
+        classStart: MinutesOfDay(c.session.horaInicio),
+        buffer: buffer,
+      )
+      .minutes;
   final today = ref.read(todayProvider);
   final pending = ref.read(pendingProvider).valueOrNull ?? const [];
 
@@ -96,8 +106,9 @@ Future<void> _push(Ref ref) async {
   final tripOf = <int, int>{};
   final lastEndByDay = <DateTime, int>{};
   for (final c in classes) {
+    final trip = travelOf(c);
     if (c.status != SessionStatus.asistio && c.status != SessionStatus.pendiente) {
-      tripOf[c.instance.id] = travel;
+      tripOf[c.instance.id] = trip;
       continue;
     }
     final day = c.instance.fecha;
@@ -105,9 +116,9 @@ Future<void> _push(Ref ref) async {
     final fromHome = DeparturePlanner.leavesFromHome(
       previousEnd: prev == null ? null : MinutesOfDay(prev),
       start: MinutesOfDay(c.session.horaInicio),
-      travelMinutes: travel,
+      travelMinutes: trip,
     );
-    tripOf[c.instance.id] = fromHome ? travel : 0;
+    tripOf[c.instance.id] = fromHome ? trip : 0;
     if (c.status == SessionStatus.asistio) {
       lastEndByDay[day] = c.session.horaFin;
     } else {

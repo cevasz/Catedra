@@ -147,6 +147,15 @@ class Tasks extends Table {
   DateTimeColumn get creadaEn => dateTime().withDefault(currentDateAndTime)();
 }
 
+/// Un viaje de casa a la U medido de verdad: «Ya voy» al salir y «Llegué» al
+/// entrar. Con estos el trayecto se corrige solo (`TravelEstimator`).
+class Trips extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  DateTimeColumn get salida => dateTime()();
+  DateTimeColumn get llegada => dateTime()();
+  IntColumn get modo => intEnum<TransportMode>()();
+}
+
 /// Fila única. `id` fijo en 1 para que un UPSERT no pueda duplicarla.
 class UserSettings extends Table {
   IntColumn get id => integer().withDefault(const Constant(1))();
@@ -157,6 +166,20 @@ class UserSettings extends Table {
   /// del modo de transporte (`DeparturePlanner.fallbackTravelMinutes`).
   IntColumn get trayectoMinutos => integer().nullable()();
   TextColumn get direccionCasa => text().nullable()();
+
+  /// Si el trayecto se corrige con los viajes medidos. Encendido: sin viajes
+  /// no cambia nada, y con viajes la hora de salir se parece más a la real.
+  BoolColumn get aprenderTrayecto => boolean().withDefault(const Constant(true))();
+
+  /// Minutos por calles entre casa y el campus, calculados con OSRM. Nulos
+  /// hasta que se calculen: casa y al menos un salón ubicado en el mapa.
+  IntColumn get rutaPieMin => integer().nullable()();
+  IntColumn get rutaCarroMin => integer().nullable()();
+
+  /// Viaje en curso: cuándo tocó «Ya voy» saliendo de casa. Se cierra con
+  /// «Llegué» (y se guarda en `Trips`) o se descarta si nadie lo cierra.
+  DateTimeColumn get enCaminoDesde => dateTime().nullable()();
+  IntColumn get enCaminoModo => intEnum<TransportMode>().nullable()();
 
   /// Si la app comprueba, 15 min después de empezar cada clase, si sigues en
   /// casa, y en ese caso anota la falta. Apagado hasta que la persona lo

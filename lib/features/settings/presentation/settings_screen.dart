@@ -18,6 +18,8 @@ import '../../home_check/application/home_check_providers.dart';
 import '../../mascot/application/mascot_voice.dart';
 import '../../mascot/mascot_error.dart';
 import '../../mascot/mascot_loader.dart';
+import '../../travel/application/travel_providers.dart';
+import '../../../domain/departure/travel_estimator.dart';
 import '../../updates/application/update_providers.dart';
 import '../../updates/presentation/update_sheet.dart';
 
@@ -117,40 +119,9 @@ class _Loaded extends ConsumerWidget {
               },
             ),
             SizedBox(height: SpaceTokens.l),
-            // El trayecto real de la persona manda sobre el estimado del modo.
-            // Sin tocarlo, el control enseña el estimado para que se note que
-            // hay un número detrás de la hora de salida.
-            _Row(
-              title: SSettings.travel,
-              subtitle: settings.trayectoMinutos == null
-                  ? SSettings.travelEstimated(
-                      n: DeparturePlanner.fallbackTravelMinutes[settings.modoTransporte]!,
-                    )
-                  : SSettings.travelHint,
-              trailing: Text(
-                TimeSpans.minutes(
-                  DeparturePlanner.travelMinutesFor(settings.modoTransporte, settings.trayectoMinutos),
-                ),
-                style: context.type(TypeTokens.titleS),
-              ),
-            ),
-            Slider(
-              value: DeparturePlanner.travelMinutesFor(settings.modoTransporte, settings.trayectoMinutos)
-                  .clamp(DeparturePlanner.minTravelMinutes, DeparturePlanner.maxTravelMinutes)
-                  .toDouble(),
-              min: DeparturePlanner.minTravelMinutes.toDouble(),
-              max: DeparturePlanner.maxTravelMinutes.toDouble(),
-              divisions: DeparturePlanner.maxTravelMinutes - DeparturePlanner.minTravelMinutes,
-              onChanged: (v) => dao.setTravelMinutes(v.round()),
-            ),
-            if (settings.trayectoMinutos != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: () => dao.setTravelMinutes(null),
-                  child: const Text(SSettings.travelUseEstimate),
-                ),
-              ),
+            // El trayecto: el número de partida (el que fijaste, la ruta o la
+            // tabla) corregido con los viajes medidos (§47).
+            _TravelBlock(settings: settings),
           ],
         ),
         SizedBox(height: SpaceTokens.xl),
@@ -583,5 +554,119 @@ class _HomeCheckCardState extends ConsumerState<_HomeCheckCard> {
         ],
       ],
     );
+  }
+}
+
+/// Tiempo de trayecto: cuánto se usa y de dónde sale, el control para fijarlo
+/// a mano, aprender de los viajes y la ruta por calles (§47).
+class _TravelBlock extends ConsumerStatefulWidget {
+  const _TravelBlock({required this.settings});
+  final UserSetting settings;
+
+  @override
+  ConsumerState<_TravelBlock> createState() => _TravelBlockState();
+}
+
+class _TravelBlockState extends ConsumerState<_TravelBlock> {
+  bool _routing = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = widget.settings;
+    final dao = ref.read(settingsDaoProvider);
+    final model = ref.watch(travelModelProvider);
+    final estimate = model.overall;
+    final source = switch (estimate.source) {
+      TravelSource.table => SSettings.travelFromTable,
+      TravelSource.route => SSettings.travelFromRoute,
+      TravelSource.custom => SSettings.travelFromCustom,
+      TravelSource.learned => SSettings.travelLearned(
+          n: estimate.samples,
+          p: TimeSpans.minutes(estimate.prior),
+        ),
+    };
+    String minutesOrDash(int? m) => m == null ? SSettings.routeUnknown : TimeSpans.minutes(m);
+    final hasRoute = settings.rutaPieMin != null || settings.rutaCarroMin != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Row(
+          title: SSettings.travel,
+          subtitle: source,
+          trailing: Text(TimeSpans.minutes(estimate.minutes), style: context.type(TypeTokens.titleS)),
+        ),
+        // El control fija el número de partida; lo aprendido se suma encima.
+        Slider(
+          value: model.prior
+              .clamp(DeparturePlanner.minTravelMinutes, DeparturePlanner.maxTravelMinutes)
+              .toDouble(),
+          min: DeparturePlanner.minTravelMinutes.toDouble(),
+          max: DeparturePlanner.maxTravelMinutes.toDouble(),
+          divisions: DeparturePlanner.maxTravelMinutes - DeparturePlanner.minTravelMinutes,
+          label: TimeSpans.minutes(model.prior),
+          onChanged: (v) => dao.setTravelMinutes(v.round()),
+        ),
+        if (settings.trayectoMinutos != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => dao.setTravelMinutes(null),
+              child: const Text(SSettings.travelUseEstimate),
+            ),
+          ),
+        SizedBox(height: SpaceTokens.s),
+        _Row(
+          title: SSettings.route,
+          subtitle: hasRoute
+              ? SSettings.routeResult(
+                  walk: minutesOrDash(settings.rutaPieMin),
+                  car: minutesOrDash(settings.rutaCarroMin),
+                )
+              : SSettings.routeHint,
+          trailing: _routing
+              ? const SizedBox.square(dimension: 24, child: CircularProgressIndicator(strokeWidth: 2))
+              : IconButton(
+                  tooltip: SSettings.route,
+                  onPressed: _calculate,
+                  icon: const Icon(Icons.route_outlined),
+                ),
+        ),
+        SizedBox(height: SpaceTokens.s),
+        _Row(
+          title: SSettings.travelLearn,
+          subtitle: SSettings.travelLearnHint,
+          trailing: Switch(value: settings.aprenderTrayecto, onChanged: dao.setLearnTravel),
+        ),
+        if (model.trips.isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                await ref.read(tripsDaoProvider).forgetAll();
+                messenger.showSnackBar(const SnackBar(content: Text(SSettings.travelForgotten)));
+              },
+              child: const Text(SSettings.travelForget),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _calculate() async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _routing = true);
+    final result = await ref.read(calculateRouteProvider)();
+    if (!mounted) return;
+    setState(() => _routing = false);
+    messenger.showSnackBar(SnackBar(
+      content: Text(switch (result) {
+        RouteCalcResult.ok => SSettings.routeDone,
+        RouteCalcResult.noHome => SSettings.routeNoHome,
+        RouteCalcResult.noCampus => SSettings.routeNoCampus,
+        RouteCalcResult.offline => SSettings.routeOffline,
+      }),
+    ));
   }
 }
