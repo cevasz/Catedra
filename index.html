@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="es-CO">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cátedra y Kairós · Descargar</title>
+<meta name="description" content="Descarga Cátedra (tu semestre) y Kairós (tu día a día) para Android.">
+<link rel="icon" href="catedra.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F0E6; --card: #FFFDF8; --raised: #EDE5D6; --line: #DED3C0;
+    --ink: #2C2620; --ink-2: #6A5F55; --ink-3: #8A7E72;
+    --ocre: #9A6F32; --on-ocre: #FFFDF8;
+    --ciruela: #5B4A6E; --on-ciruela: #F1E6D3;
+    --shadow: 0 1px 2px rgba(44,38,32,.06), 0 8px 24px rgba(44,38,32,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #14100E; --card: #1F1A16; --raised: #2A231D; --line: #3D342B;
+      --ink: #EDE4D8; --ink-2: #A2968A; --ink-3: #8C8176;
+      --ocre: #C89B5C; --on-ocre: #231B12;
+      --ciruela: #8E77AC; --on-ciruela: #14100E;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 400 17px/1.5 "Source Sans 3", system-ui, sans-serif;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 48px 16px 64px; }
+  header { margin-bottom: 32px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 8px; font-weight: 700; letter-spacing: -.01em; }
+  .lead { color: var(--ink-2); margin: 0; max-width: 56ch; }
+  .apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .app {
+    background: var(--card); border: 1px solid var(--line); border-radius: 20px;
+    padding: 24px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 16px;
+  }
+  .app-head { display: flex; gap: 16px; align-items: center; }
+  .app-head img { width: 64px; height: 64px; border-radius: 16px; flex: none; }
+  .app h2 { margin: 0; font-size: 24px; font-weight: 700; }
+  .app .tag { margin: 2px 0 0; color: var(--ink-2); font-size: 15px; }
+  .app p.what { margin: 0; color: var(--ink); }
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 52px; padding: 12px 20px; border-radius: 14px; text-decoration: none;
+    font-weight: 600; font-size: 17px; transition: transform .12s ease, filter .12s ease;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn:hover { filter: brightness(1.05); }
+  .btn.ocre { background: var(--ocre); color: var(--on-ocre); }
+  .btn.ciruela { background: var(--ciruela); color: var(--on-ciruela); }
+  .btn svg { width: 20px; height: 20px; }
+  .small { font-size: 14px; color: var(--ink-3); margin: 0; }
+  .small a { color: var(--ink-2); }
+  .meta { font: 400 13px/1.4 "IBM Plex Mono", monospace; color: var(--ink-3); }
+  .qr { display: none; align-items: center; gap: 16px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .qr .code { background: #fff; padding: 8px; border-radius: 10px; line-height: 0; flex: none; }
+  .qr .code svg { width: 112px; height: 112px; }
+  @media (hover: hover) and (pointer: fine) { .qr { display: flex; } }
+  section.steps { margin-top: 40px; }
+  h3 { font-size: 20px; margin: 0 0 12px; }
+  ol { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 12px; }
+  ol li {
+    counter-increment: s; position: relative; padding: 16px 16px 16px 60px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+  }
+  ol li::before {
+    content: counter(s); position: absolute; left: 16px; top: 14px; width: 30px; height: 30px;
+    border-radius: 50%; background: var(--raised); color: var(--ink);
+    display: grid; place-items: center; font: 500 15px "IBM Plex Mono", monospace;
+  }
+  ol li b { display: block; margin-bottom: 2px; }
+  ol li span { color: var(--ink-2); }
+  .faq { margin-top: 32px; display: grid; gap: 8px; }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { margin: 8px 0 0; color: var(--ink-2); }
+  footer { margin-top: 40px; color: var(--ink-3); font-size: 14px; }
+  footer a { color: var(--ink-2); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Descarga Cátedra y Kairós</h1>
+    <p class="lead">Dos apps para Android. Todo lo que guardas se queda en tu teléfono, y las versiones nuevas te llegan como un aviso dentro de la app.</p>
+  </header>
+
+  <div class="apps">
+    <article class="app" data-repo="cevasz/Catedra" data-apk="catedra.apk">
+      <div class="app-head">
+        <img src="catedra.svg" alt="">
+        <div>
+          <h2>Cátedra</h2>
+          <p class="tag">Tu semestre, sin sorpresas</p>
+        </div>
+      </div>
+      <p class="what">Importa el horario en PDF y te dice a qué hora salir, cuántas faltas te quedan y qué nota necesitas.</p>
+      <a class="btn ocre" href="https://github.com/cevasz/Catedra/releases/latest/download/catedra.apk">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+        Descargar Cátedra
+      </a>
+      <p class="small"><span class="meta" data-version>última versión</span> · ¿El teléfono es viejo y no instala? <a href="https://github.com/cevasz/Catedra/releases/latest/download/catedra-universal.apk">Versión universal</a></p>
+      <div class="qr"><div class="code" data-qr="https://github.com/cevasz/Catedra/releases/latest/download/catedra.apk"></div><p class="small">¿Estás en el computador? Escanea con la cámara del teléfono.</p></div>
+    </article>
+
+    <article class="app" data-repo="cevasz/Kairos" data-apk="kairos.apk">
+      <div class="app-head">
+        <img src="kairos.svg" alt="">
+        <div>
+          <h2>Kairós</h2>
+          <p class="tag">El momento oportuno para cada cosa</p>
+        </div>
+      </div>
+      <p class="what">Tu rutina, tus pendientes y cuándo salir hacia cada cosa. Aprende cuánto tardas y lleva tus rachas.</p>
+      <a class="btn ciruela" href="https://github.com/cevasz/Kairos/releases/latest/download/kairos.apk">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+        Descargar Kairós
+      </a>
+      <p class="small"><span class="meta" data-version>última versión</span> · ¿El teléfono es viejo y no instala? <a href="https://github.com/cevasz/Kairos/releases/latest/download/kairos-universal.apk">Versión universal</a></p>
+      <div class="qr"><div class="code" data-qr="https://github.com/cevasz/Kairos/releases/latest/download/kairos.apk"></div><p class="small">¿Estás en el computador? Escanea con la cámara del teléfono.</p></div>
+    </article>
+  </div>
+
+  <section class="steps">
+    <h3>Instalarla, en cuatro toques</h3>
+    <ol>
+      <li><b>Toca «Descargar»</b><span>Abre esta página en el teléfono. Baja un archivo .apk de unos 30 MB.</span></li>
+      <li><b>Abre el archivo</b><span>Desde el aviso de descarga o desde «Archivos → Descargas».</span></li>
+      <li><b>Permite instalar desde esa app</b><span>Android pregunta la primera vez: «Configuración» → activa «Permitir de esta fuente» y vuelve atrás.</span></li>
+      <li><b>Si sale Play Protect, toca «Instalar de todos modos»</b><span>Avisa porque la app no viene de la Play Store, no porque tenga algo malo.</span></li>
+    </ol>
+  </section>
+
+  <section class="faq">
+    <details><summary>¿Cómo me llegan las versiones nuevas?</summary><p>Solas: al abrir la app sale un aviso «Actualizar». La primera vez Android pide permiso para que la app instale su propia actualización.</p></details>
+    <details><summary>Dice «No se instaló la app»</summary><p>Si tenías una versión anterior a la 0.2.1 de Cátedra, desinstálala primero (cambió la firma). Si el teléfono es viejo, usa la versión universal.</p></details>
+    <details><summary>¿Qué datos salen de mi teléfono?</summary><p>Ninguno de los tuyos. La app solo baja el mapa de OpenStreetMap, revisa si hay versión nueva en GitHub y, si tocas «Calcular con el mapa», pide la ruta entre tu casa y el campus.</p></details>
+    <details><summary>¿Cambio de teléfono?</summary><p>En Ajustes → Copia de seguridad, «Exportar copia» guarda un archivo con todo. En el teléfono nuevo, «Restaurar copia».</p></details>
+  </section>
+
+  <footer>Hechas por <a href="https://github.com/cevasz">cevasz</a> · Código: <a href="https://github.com/cevasz/Catedra">Cátedra</a> · <a href="https://github.com/cevasz/Kairos">Kairós</a></footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+  // QR para escanear desde el computador.
+  document.querySelectorAll('[data-qr]').forEach(function (el) {
+    try {
+      var qr = qrcode(0, 'M');
+      qr.addData(el.getAttribute('data-qr'));
+      qr.make();
+      el.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    } catch (e) { el.parentElement.style.display = 'none'; }
+  });
+  // La versión publicada, leída del mismo manifiesto que usa la app.
+  document.querySelectorAll('.app').forEach(function (card) {
+    var repo = card.getAttribute('data-repo');
+    fetch('https://api.github.com/repos/' + repo + '/releases/latest')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) return;
+        var apk = (j.assets || []).find(function (a) { return a.name === card.getAttribute('data-apk'); });
+        var mb = apk ? ' · ' + Math.round(apk.size / 1048576) + ' MB' : '';
+        card.querySelector('[data-version]').textContent = j.tag_name + mb;
+      })
+      .catch(function () {});
+  });
+</script>
+</body>
+</html>
