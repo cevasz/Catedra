@@ -64,6 +64,7 @@
   .qr .code svg { width: 112px; height: 112px; }
   @media (hover: hover) and (pointer: fine) { .qr { display: flex; } }
   .lock { display: grid; gap: 8px; }
+  .lock[hidden] { display: none; }
   .lock label { font-size: 15px; color: var(--ink-2); }
   .lock-row { display: flex; gap: 8px; }
   .lock input {
@@ -197,6 +198,7 @@
     function open() {
       box.querySelectorAll('[data-href]').forEach(function (a) { a.href = BASE + a.getAttribute('data-href'); });
       box.querySelectorAll('[data-qr-file]').forEach(function (el) { el.setAttribute('data-qr', BASE + el.getAttribute('data-qr-file')); drawQr(el); });
+      form.classList.remove('bad'); msg.textContent = '';
       form.hidden = true; box.hidden = false;
       try { sessionStorage.setItem('kairos-ok', '1'); } catch (e) {}
     }
