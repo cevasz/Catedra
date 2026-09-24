@@ -1035,6 +1035,30 @@ que no sea tan simple», con la rueda radial de Concepts.
 - Desde `medium` sigue el riel lateral, con las cuatro acciones abajo.
 - `RadialGeometry` es la misma para el dibujo y el toque, y tiene test.
 
+## 50. Otros formatos de horario: retícula por horas y calendarios .ics
+
+**Pedido del usuario (2026-09-23):** «en el parser del horario prepárate para
+otro tipo de horarios».
+
+- **Retícula por horas (`TimeGridParser`):** días arriba, horas en la
+  primera columna y en la casilla solo la materia (con salón o profesor si
+  vienen etiquetados). La hora sale de la fila por coordenada Y. La misma
+  materia en filas seguidas se une en una sesión, y una hora que retrocede
+  sin a.m./p.m. («12:00, 1:00») es de la tarde. Si las casillas traen su
+  propia hora es el formato de «Servicios académicos» y se retira: sobre el
+  PDF real de la Santo Tomás habría leído 9 «materias» basura.
+- **Calendarios (.ics):** Google Calendar, Outlook/Teams, Moodle. Un evento
+  semanal (`RRULE` con `BYDAY`) es una clase con sus días. Un evento suelto
+  cuenta solo si se repite el mismo día y a la misma hora en dos semanas o
+  más. Si nada se repite, se toma todo con duda. Las horas en UTC pasan a la
+  hora local; los eventos de todo el día se descartan.
+- **Elección:** con un PDF corren las dos retículas y `bestParse` se queda
+  con la de más sesiones y menos dudas; el heurístico sigue de respaldo y
+  Claude de red de seguridad (solo con clave). El selector acepta `.pdf` y
+  `.ics`.
+- Falta lo de siempre: horarios reales de otras universidades como fixture.
+  Si uno falla, guardar sus líneas en `test/fixtures/`.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura

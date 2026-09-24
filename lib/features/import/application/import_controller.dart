@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -11,7 +12,9 @@ import '../../../domain/import/schedule_parser.dart';
 import '../../../theme/tokens.g.dart';
 import '../data/claude_schedule_parser.dart';
 import '../data/column_schedule_parser.dart';
+import '../data/ics_schedule_parser.dart';
 import '../data/pdf_text.dart';
+import '../data/time_grid_parser.dart';
 
 /// Por qué falló la importación. Cada motivo tiene su texto en A5.
 enum ImportFailure {
@@ -130,7 +133,8 @@ class ImportController extends StateNotifier<ImportState> {
     try {
       file = await FilePicker.pickFile(
         type: FileType.custom,
-        allowedExtensions: const ['pdf'],
+        // PDF del portal o calendario .ics (Google, Outlook, Moodle) (§50).
+        allowedExtensions: const ['pdf', 'ics'],
       );
       if (file == null) return;
       bytes = await file.readAsBytes();
@@ -150,6 +154,18 @@ class ImportController extends StateNotifier<ImportState> {
   Future<void> importBytes(Uint8List bytes, {required String fileName}) async {
     final generation = ++_generation;
     state = ImportExtracting(fileName: fileName);
+
+    // Un calendario no pasa por el extractor de PDF: ya trae días y horas.
+    if (IcsScheduleParser.looksLikeIcs(bytes)) {
+      final found = IcsScheduleParser.parse(utf8.decode(bytes, allowMalformed: true));
+      if (found.isEmpty) {
+        state = const ImportFailed(ImportFailure.nothingFound);
+        return;
+      }
+      if (!await _reveal(found, fileName, generation)) return;
+      _review(found, usedClaude: false);
+      return;
+    }
 
     final PdfTextResult text;
     try {
@@ -172,7 +188,13 @@ class ImportController extends StateNotifier<ImportState> {
     // Los horarios de servicios académicos vienen como tabla con una columna
     // por día. Ahí la posición X de cada celda dice el día sin ambigüedad, y
     // el resultado es exacto: nombre, días, horas, salón, docente y créditos.
-    final grid = ColumnScheduleParser.parse(text.positioned);
+    // Dos retículas: la de «Servicios académicos» (la hora dentro de cada
+    // celda) y la clásica (la hora en la fila). Gana la que lea más clases
+    // sin dudas (§50).
+    final grid = bestParse([
+      ColumnScheduleParser.parse(text.positioned),
+      TimeGridParser.parse(text.positioned),
+    ]);
 
     final lines = text.lines;
     var found = grid;
@@ -190,19 +212,7 @@ class ImportController extends StateNotifier<ImportState> {
         if (_stale(generation)) return;
       }
     } else {
-      // La retícula se resuelve de golpe, pero A3 se lee mejor revelando fila
-      // a fila: es el mismo movimiento que hace el parser heurístico.
-      for (var shown = 1; shown <= found.length; shown++) {
-        state = ImportParsing(
-          fileName: fileName,
-          found: found.sublist(0, shown),
-          done: shown,
-          total: found.length,
-        );
-        if (shown == found.length) break;
-        await Future<void>.delayed(MotionStagger.pdfRows);
-        if (_stale(generation)) return;
-      }
+      if (!await _reveal(found, fileName, generation)) return;
     }
 
     // ── Tercera pasada: Claude, solo como red de seguridad ──────────────────
@@ -240,6 +250,26 @@ class ImportController extends StateNotifier<ImportState> {
     }
     state = ImportReview(classes: classes, usedClaude: usedClaude);
   }
+
+  /// Revela lo leído fila a fila en A3: la lectura es de golpe, pero se
+  /// entiende mejor viéndola llegar. False si la importación quedó vieja.
+  Future<bool> _reveal(List<ParsedClass> found, String fileName, int generation) async {
+    for (var shown = 1; shown <= found.length; shown++) {
+      state = ImportParsing(
+        fileName: fileName,
+        found: found.sublist(0, shown),
+        done: shown,
+        total: found.length,
+      );
+      if (shown == found.length) break;
+      await Future<void>.delayed(MotionStagger.pdfRows);
+      if (_stale(generation)) return false;
+    }
+    return !_stale(generation);
+  }
+
+  void _review(List<ParsedClass> classes, {required bool usedClaude}) =>
+      state = ImportReview(classes: classes, usedClaude: usedClaude);
 
   /// Durante la pasada con Claude: no esperar más y revisar lo que ya se
   /// encontró. La respuesta, si llega, se descarta por generación.
@@ -453,3 +483,21 @@ final importControllerProvider =
     StateNotifierProvider.autoDispose<ImportController, ImportState>(
   (ref) => ImportController(ref),
 );
+
+/// De varias lecturas del mismo archivo, la que más sirve: más sesiones y
+/// menos materias con dudas. Una lectura vacía nunca gana a una con algo. En
+/// empate, la primera (la del formato más específico).
+List<ParsedClass> bestParse(List<List<ParsedClass>> candidates) {
+  var best = const <ParsedClass>[];
+  var bestScore = 0;
+  for (final c in candidates) {
+    final sessions = c.fold<int>(0, (n, x) => n + x.sessions.length);
+    final doubtful = c.where((x) => x.isLowConfidence).length;
+    final score = sessions * 2 - doubtful * 3;
+    if (c.isNotEmpty && (best.isEmpty || score > bestScore)) {
+      best = c;
+      bestScore = score;
+    }
+  }
+  return best;
+}

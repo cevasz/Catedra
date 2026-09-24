@@ -123,6 +123,12 @@ class _PickerView extends ConsumerWidget {
                     textAlign: TextAlign.center,
                     style: context.type(TypeTokens.bodyM, color: ColorTokens.textSecondary.of(b)),
                   ),
+                  SizedBox(height: SpaceTokens.xs),
+                  Text(
+                    SPdfPicker.otherFormats,
+                    textAlign: TextAlign.center,
+                    style: context.type(TypeTokens.captionS, color: ColorTokens.textTertiary.of(b)),
+                  ),
                 ],
               ),
             ),
