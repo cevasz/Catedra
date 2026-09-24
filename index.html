@@ -63,6 +63,19 @@
   .qr .code { background: #fff; padding: 8px; border-radius: 10px; line-height: 0; flex: none; }
   .qr .code svg { width: 112px; height: 112px; }
   @media (hover: hover) and (pointer: fine) { .qr { display: flex; } }
+  .lock { display: grid; gap: 8px; }
+  .lock label { font-size: 15px; color: var(--ink-2); }
+  .lock-row { display: flex; gap: 8px; }
+  .lock input {
+    flex: 1; min-width: 0; min-height: 52px; padding: 0 16px; border-radius: 14px;
+    border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+    font: 500 20px "IBM Plex Mono", monospace; letter-spacing: .2em;
+  }
+  .lock input:focus { outline: 2px solid var(--ciruela); outline-offset: 1px; }
+  .lock .btn { border: 0; cursor: pointer; font-family: inherit; }
+  .lock.bad input { border-color: #B05B3E; }
+  .unlocked { display: flex; flex-direction: column; gap: 16px; }
+  .unlocked[hidden] { display: none; }
   section.steps { margin-top: 40px; }
   h3 { font-size: 20px; margin: 0 0 12px; }
   ol { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 12px; }
@@ -89,7 +102,7 @@
 <main>
   <header>
     <h1>Descarga Cátedra y Kairós</h1>
-    <p class="lead">Dos apps para Android. Todo lo que guardas se queda en tu teléfono, y las versiones nuevas te llegan como un aviso dentro de la app.</p>
+    <p class="lead">Dos apps para Android (Kairós, por ahora, con código). Todo lo que guardas se queda en tu teléfono, y las versiones nuevas te llegan como un aviso dentro de la app.</p>
   </header>
 
   <div class="apps">
@@ -119,12 +132,24 @@
         </div>
       </div>
       <p class="what">Tu rutina, tus pendientes y cuándo salir hacia cada cosa. Aprende cuánto tardas y lleva tus rachas.</p>
-      <a class="btn ciruela" href="https://github.com/cevasz/Kairos/releases/latest/download/kairos.apk">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
-        Descargar Kairós
-      </a>
-      <p class="small"><span class="meta" data-version>última versión</span> · ¿El teléfono es viejo y no instala? <a href="https://github.com/cevasz/Kairos/releases/latest/download/kairos-universal.apk">Versión universal</a></p>
-      <div class="qr"><div class="code" data-qr="https://github.com/cevasz/Kairos/releases/latest/download/kairos.apk"></div><p class="small">¿Estás en el computador? Escanea con la cámara del teléfono.</p></div>
+      <!-- Kairós se comparte con código. Es una cortina, no una cerradura:
+           la página es pública y el APK también (ver README). -->
+      <form class="lock" data-lock autocomplete="off">
+        <label for="kairos-code">Kairós es por invitación. Escribe el código que te dieron.</label>
+        <div class="lock-row">
+          <input id="kairos-code" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="Código" aria-describedby="kairos-msg">
+          <button class="btn ciruela" type="submit">Desbloquear</button>
+        </div>
+        <p class="small" id="kairos-msg" role="status" aria-live="polite"></p>
+      </form>
+      <div class="unlocked" data-unlocked hidden>
+        <a class="btn ciruela" data-href="kairos.apk">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+          Descargar Kairós
+        </a>
+        <p class="small"><span class="meta" data-version>última versión</span> · ¿El teléfono es viejo y no instala? <a data-href="kairos-universal.apk">Versión universal</a></p>
+        <div class="qr"><div class="code" data-qr-file="kairos.apk"></div><p class="small">¿Estás en el computador? Escanea con la cámara del teléfono.</p></div>
+      </div>
     </article>
   </div>
 
@@ -151,14 +176,41 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
   // QR para escanear desde el computador.
-  document.querySelectorAll('[data-qr]').forEach(function (el) {
+  function drawQr(el) {
     try {
       var qr = qrcode(0, 'M');
       qr.addData(el.getAttribute('data-qr'));
       qr.make();
       el.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
     } catch (e) { el.parentElement.style.display = 'none'; }
-  });
+  }
+  document.querySelectorAll('[data-qr]').forEach(drawQr);
+  // Kairós: el código se compara por su SHA-256, no en claro. Al acertar se
+  // arman los enlaces y se recuerda en esta pestaña.
+  (function () {
+    var HASH = '7e66b5dd3d158d14ba3300cad5702ee6d72befaec37890eed25c91687bb649df';
+    var BASE = 'https://github.com/cevasz/Kairos/releases/latest/download/';
+    var form = document.querySelector('[data-lock]');
+    var box = document.querySelector('[data-unlocked]');
+    var msg = document.getElementById('kairos-msg');
+    function hex(buf) { return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join(''); }
+    function open() {
+      box.querySelectorAll('[data-href]').forEach(function (a) { a.href = BASE + a.getAttribute('data-href'); });
+      box.querySelectorAll('[data-qr-file]').forEach(function (el) { el.setAttribute('data-qr', BASE + el.getAttribute('data-qr-file')); drawQr(el); });
+      form.hidden = true; box.hidden = false;
+      try { sessionStorage.setItem('kairos-ok', '1'); } catch (e) {}
+    }
+    try { if (sessionStorage.getItem('kairos-ok') === '1') open(); } catch (e) {}
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var code = document.getElementById('kairos-code').value.trim();
+      crypto.subtle.digest('SHA-256', new TextEncoder().encode(code)).then(function (d) {
+        if (hex(d) === HASH) { open(); return; }
+        form.classList.add('bad'); msg.textContent = 'Ese no es. Pídele el código a quien te pasó la página.';
+      });
+    });
+  })();
+
   // La versión publicada, leída del mismo manifiesto que usa la app.
   document.querySelectorAll('.app').forEach(function (card) {
     var repo = card.getAttribute('data-repo');
