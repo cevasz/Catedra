@@ -1092,6 +1092,20 @@ actualizaciones finales, la de dev es la que usaré siempre».
 - El daemon de Gradle baja a 3 GB: con 8 GB en un equipo de 7 moría a mitad
   de compilación.
 
+## 52. La Dev también se actualiza sola
+
+**Pedido del usuario (2026-09-24):** «quiero que tanto la dev como la
+normal se actualicen».
+
+- La Dev lee `releases/download/dev/version.json`: un pre-release fijo
+  llamado `dev` que `tool/publicar-dev.sh` reemplaza en cada entrega (APK y
+  manifiesto con `--clobber`). Un pre-release nunca es «latest», así que la
+  estable no lo ve.
+- Se compila en el equipo, no en GitHub: la Dev va firmada con la clave de
+  depuración de este equipo, que no sale de él.
+- versionCode = 1000 + número de commits: crece solo y el script exige que
+  no haya cambios sin commit en la app.
+
 ## Lo que sigue sin especificación visual
 
 Único hueco abierto de los nueve detectados; el de las pantallas de captura
