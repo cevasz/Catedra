@@ -154,8 +154,7 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
     final body = IndexedStack(
       index: index,
       children: [
-        for (var i = 0; i < AppShell._screens.length; i++)
-          TickerMode(enabled: i == index, child: AppShell._screens[i]),
+        for (var i = 0; i < AppShell._screens.length; i++) TickerMode(enabled: i == index, child: AppShell._screens[i]),
       ],
     );
 
@@ -216,13 +215,15 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
               bottom: hubSize + SpaceTokens.s * 2 + MediaQuery.paddingOf(context).bottom,
               child: MediaQuery.removePadding(context: context, removeBottom: true, child: body),
             ),
-            AnimatedBuilder(
-              animation: _menu,
-              builder: (context, _) {
-                final geo = _geometry();
-                if (_menu.value == 0 || geo == null) return const SizedBox.shrink();
-                return Positioned.fill(
-                  child: RadialMenuLayer(
+            // El Positioned va afuera: tiene que ser hijo directo del Stack.
+            // Dentro del AnimatedBuilder, en release, se cae todo el shell.
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _menu,
+                builder: (context, _) {
+                  final geo = _geometry();
+                  if (_menu.value == 0 || geo == null) return const SizedBox.shrink();
+                  return RadialMenuLayer(
                     geometry: geo,
                     screens: _screenItems(),
                     actions: _actionItems(),
@@ -237,9 +238,9 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
                         _choose(hit);
                       }
                     },
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
             Positioned(
               left: 0,
